@@ -1,0 +1,31 @@
+# Ignore markdown files except README, DEVPOST, and Skills
+*.md
+!README.md
+!README*.md
+!DEVPOST.md
+!skills/**/*.md
+
+# Archives & Temp Files
+*.zip
+*.tar.gz
+*.tgz
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Environment / OS
+.env
+.DS_Store
+Thumbs.db

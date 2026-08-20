@@ -1,0 +1,38 @@
+[
+  {
+    "id": "eval_01_nudge_tone",
+    "description": "Standard expense report nudge tone and detail fidelity",
+    "input": {
+      "action_type": "nudge",
+      "report_id": "EXP-102",
+      "submitter": "Bob Miller",
+      "amount": "1250.00",
+      "currency": "USD",
+      "description": "Q3 Cloud Infrastructure annual license"
+    },
+    "rubric": {
+      "must_contain": ["EXP-102", "Bob Miller"],
+      "prohibited_terms": ["urgent immediate", "threat", "disciplinary"],
+      "min_length": 20,
+      "max_length": 300
+    }
+  },
+  {
+    "id": "eval_02_escalation_tone",
+    "description": "Escalation notice clarity and mention of primary approver inactivity",
+    "input": {
+      "action_type": "escalate",
+      "report_id": "EXP-103",
+      "submitter": "Carlos Gomez",
+      "amount": "3400.00",
+      "currency": "USD",
+      "description": "Offsite workshop conference venue"
+    },
+    "rubric": {
+      "must_contain": ["EXP-103", "Carlos Gomez"],
+      "prohibited_terms": ["fired", "penalty"],
+      "min_length": 20,
+      "max_length": 350
+    }
+  }
+]
