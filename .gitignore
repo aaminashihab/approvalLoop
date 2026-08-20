@@ -4,6 +4,7 @@
 !README*.md
 !DEVPOST.md
 !skills/**/*.md
+!docs/**/*.md
 
 # Archives & Temp Files
 *.zip

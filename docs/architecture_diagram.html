@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ApprovalLoop — Architecture Diagram Viewer</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #0f172a;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-purple: #c084fc;
+      --accent-green: #34d399;
+      --accent-red: #f87171;
+      --accent-amber: #fbbf24;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background-color: #0b1120;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+    }
+    .brand-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-title span {
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: #334155;
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #fff;
+    }
+    #viewport-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      background: radial-gradient(circle at center, #111827 0%, #070a10 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #viewport-container:active {
+      cursor: grabbing;
+    }
+    #svg-wrapper {
+      transform-origin: center center;
+      transition: transform 0.05s ease-out;
+      width: 96%;
+      max-width: 1900px;
+      display: flex;
+      justify-content: center;
+    }
+    #svg-wrapper svg {
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    }
+    .floating-hud {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .hud-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand-title">
+      ApprovalLoop <span>// “LLM proposes. Code disposes.”</span>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="zoomIn()">➕ Zoom In</button>
+      <button class="btn" onclick="zoomOut()">➖ Zoom Out</button>
+      <button class="btn" onclick="resetZoom()">↺ Reset View</button>
+      <button class="btn" onclick="fitWidth()">↔ Fit Screen</button>
+      <a class="btn" href="./architecture_diagram.svg" download="ApprovalLoop_Architecture.svg">💾 Download SVG</a>
+    </div>
+  </header>
+
+  <div id="viewport-container">
+    <div id="svg-wrapper">
+      <!-- Embedded Vector SVG -->
+      <object id="svg-object" data="./architecture_diagram.svg" type="image/svg+xml" style="width: 100%; height: auto; pointer-events: auto;"></object>
+    </div>
+
+    <div class="floating-hud">
+      <div class="hud-pill"><div class="dot" style="background:#38bdf8;"></div> Cloud Run / FastAPI</div>
+      <div class="hud-pill"><div class="dot" style="background:#c084fc;"></div> Gemini 3.5 Flash</div>
+      <div class="hud-pill"><div class="dot" style="background:#34d399;"></div> 4-Point Safety Gate</div>
+      <div class="hud-pill"><div class="dot" style="background:#fbbf24;"></div> Outbox Idempotency</div>
+      <div class="hud-pill"><div class="dot" style="background:#f87171;"></div> Blocked / Denied Path</div>
+    </div>
+  </div>
+
+  <script>
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    const wrapper = document.getElementById('svg-wrapper');
+    const container = document.getElementById('viewport-container');
+
+    function updateTransform() {
+      wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    }
+
+    function zoomIn() {
+      scale = Math.min(scale * 1.25, 4.0);
+      updateTransform();
+    }
+
+    function zoomOut() {
+      scale = Math.max(scale / 1.25, 0.4);
+      updateTransform();
+    }
+
+    function resetZoom() {
+      scale = 1;
+      panX = 0;
+      panY = 0;
+      updateTransform();
+    }
+
+    function fitWidth() {
+      scale = 0.92;
+      panX = 0;
+      panY = 0;
+      updateTransform();
+    }
+
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      scale = Math.max(0.4, Math.min(4.0, scale * zoomFactor));
+      updateTransform();
+    }, { passive: false });
+
+    container.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+  </script>
+</body>
+</html>
