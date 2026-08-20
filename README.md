@@ -55,34 +55,43 @@ In autonomous financial and operational systems, non-deterministic models must *
 
 ## 🔄 Autonomous Workflow & Architecture
 
+<p align="center">
+  <img src="docs/architecture_diagram.svg" alt="ApprovalLoop Software Architecture Diagram" width="100%" />
+</p>
+
+<p align="center">
+  <a href="docs/architecture_diagram.html">🔍 <b>Open Interactive Pan/Zoom Diagram</b></a> • 
+  <a href="docs/ARCHITECTURE.md">📖 <b>Read Complete Architecture Blueprint</b></a>
+</p>
+
 ```mermaid
 flowchart TD
-    subgraph Google Cloud
-        CS[Google Cloud Scheduler\nCron: */1 * * * *] -->|HTTP POST /api/tick| CR[Google Cloud Run\nFastAPI Backend]
-        CR -->|Read / Write State| FS[(Google Cloud Firestore\nState & Outbox)]
+    subgraph GCP["Google Cloud Platform"]
+        CS["Google Cloud Scheduler<br/>Cron: */1 * * * *"] -->|HTTP POST /api/tick| CR["Google Cloud Run<br/>FastAPI Backend"]
+        CR -->|Read / Write State| FS[("Google Cloud Firestore<br/>State &amp; Outbox")]
     end
 
-    subgraph ApprovalLoop Engine
-        CR --> OBS[1. Observe Open Approvals]
-        OBS --> DEC[2. Decide Eligibility & Action]
-        DEC --> SKL[3. Runtime Skill Discovery\nProgressive Disclosure Loader]
-        SKL --> CLM[4. Atomic Outbox Claim\nKey: report_id:action_type]
+    subgraph Engine["ApprovalEngine Orchestrator"]
+        CR --> OBS["1. Observe Open Approvals"]
+        OBS --> DEC["2. Decide Eligibility &amp; Action"]
+        DEC --> SKL["3. Runtime Skill Discovery<br/>Progressive Disclosure Loader"]
+        SKL --> CLM["4. Atomic Outbox Claim<br/>Key: report_id:action_type"]
         
-        CLM -->|Transactional Lock Granted| GAI[5. Google GenAI SDK\nGemini 3.5 Flash Drafter]
-        GAI --> DRAFT[Structured Draft Proposal\nPydantic Schema Validated]
+        CLM -->|Transactional Lock Granted| GAI["5. Google GenAI SDK<br/>Gemini 3.5 Flash Drafter"]
+        GAI --> DRAFT["Structured Draft Proposal<br/>Pydantic Schema Validated"]
         
-        DRAFT --> VAL{6. 4-Point Deterministic\nSafety Validator}
-        VAL -->|PASS| POL{7. Corporate Policy Engine\nDomain & Limit Authorization}
-        VAL -->|FAIL / BLOCKED| BLK[Blocked & Audited\nDispatch Aborted]
+        DRAFT --> VAL{"6. 4-Point Deterministic<br/>Safety Validator"}
+        VAL -->|PASS| POL{"7. Corporate Policy Engine<br/>Domain &amp; Limit Authorization"}
+        VAL -->|FAIL / BLOCKED| BLK["Blocked &amp; Audited<br/>Dispatch Aborted"]
         
-        POL -->|ALLOW| ACT[8. Notification Worker\nDispatch Simulation & Logging]
+        POL -->|ALLOW| ACT["8. Notification Worker<br/>Dispatch Simulation &amp; Logging"]
         POL -->|DENY| BLK
         
-        ACT --> CG{9. Conditional State Guard\ncurrent == source_state?}
-        CG -->|MATCH| APP[State Applied\nPending -> Nudged]
-        CG -->|MISMATCH / Resolved| SKP[State Skipped\nResolved Preserved]
+        ACT --> CG{"9. Conditional State Guard<br/>current == source_state"}
+        CG -->|MATCH| APP["State Applied<br/>Pending -&gt; Nudged"]
+        CG -->|MISMATCH / Resolved| SKP["State Skipped<br/>Resolved Preserved"]
         
-        APP --> AUD[(Audit Ledger & OTel-Compatible Traces)]
+        APP --> AUD[("Audit Ledger &amp; OTel Traces")]
         SKP --> AUD
         BLK --> AUD
     end
