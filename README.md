@@ -237,7 +237,7 @@ Test coverage includes:
 ---
 
 
-## 🛡️ Limitations & Honest Disclosure
+##  Limitations & Honest Disclosure
 
 - **Notification Provider:** For hackathon demonstration and testing safety, the system defaults to `MockNotificationProvider`, simulating provider idempotency, receipt tracking, and network fault injection without sending unsolicited emails to real mailboxes. The architecture uses a clean `BaseNotificationProvider` abstraction so that an enterprise provider (e.g. SendGrid, Google Cloud Tasks, or Corporate SMTP) can be substituted in production without altering agent orchestration logic.
 - **Transactional Firestore:** In local test suites, `InMemoryRepository` provides thread-safe dictionary storage with lock synchronization; in cloud deployment, `FirestoreRepository` provides ACID document transactions.
