@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { ExpenseReport, ActionRecord, AutonomyMetrics } from '../types/approval';
 import { AutonomyProof } from '../components/AutonomyProof';
+import { SafetyProof } from '../components/SafetyProof';
 import { ReportTable } from '../components/ReportTable';
 import { ActionLedger } from '../components/ActionLedger';
 import { StateMachine } from '../components/StateMachine';
@@ -73,6 +74,16 @@ export const Dashboard: React.FC = () => {
     await fetchData();
   };
 
+  const handleSimulateNotificationFailure = async () => {
+    await api.simulateNotificationFailure();
+    await fetchData();
+  };
+
+  const handleResetDemo = async () => {
+    await api.resetDemo();
+    await fetchData();
+  };
+
   const handleResolve = async (id: string) => {
     await api.resolveReport(id);
     await fetchData();
@@ -90,12 +101,12 @@ export const Dashboard: React.FC = () => {
             <div>
               <h1 className="text-2xl font-black tracking-tight text-white">ApprovalLoop</h1>
               <p className="text-xs text-indigo-300 font-semibold">
-                Bounded Autonomous Agent for Stalled Human Workflows — Powered by Google Gemini & Cloud Run
+                Bounded Autonomous Agent for Stalled Human Workflows — Powered by Google Gemini &amp; Cloud Run
               </p>
             </div>
           </div>
           <p className="text-xs text-slate-400 mt-2 italic">
-            "Most agents wait for a prompt. ApprovalLoop acts when nothing happens."
+            "The LLM writes the message. Code controls the consequences."
           </p>
         </div>
 
@@ -110,6 +121,9 @@ export const Dashboard: React.FC = () => {
       {/* AUTONOMY PROOF SECTION */}
       <AutonomyProof metrics={metrics} isLiveMode={isLiveMode} />
 
+      {/* SAFETY PROOF & CONTROL PLANE */}
+      <SafetyProof />
+
       {/* Controls & Scenario Simulation */}
       <ScenarioRunner
         onTick={handleTick}
@@ -117,6 +131,8 @@ export const Dashboard: React.FC = () => {
         onAdvanceTime={handleAdvanceTime}
         onSimulateRace={handleSimulateRace}
         onSimulateAdversarial={handleSimulateAdversarial}
+        onSimulateNotificationFailure={handleSimulateNotificationFailure}
+        onResetDemo={handleResetDemo}
         isLiveMode={isLiveMode}
         onToggleLiveMode={() => setIsLiveMode(!isLiveMode)}
       />
@@ -136,3 +152,4 @@ export const Dashboard: React.FC = () => {
     </div>
   );
 };
+

@@ -6,12 +6,13 @@ SYSTEM_INSTRUCTIONS = """You are the drafting communication assistant for Approv
 Your task is to draft a concise, polite, and professional notification for an expense sign-off action.
 
 Rules:
-1. Provide a polite, direct reminder.
+1. Provide a polite, direct reminder adapted to urgency.
 2. Mention the Report ID and Submitter.
 3. If this is an ESCALATION, clearly note that the primary approver did not respond.
-4. Output a JSON object with:
+4. Output a strict JSON object with:
    - "message": The clean email body text.
-   - "tone": "professional"
+   - "tone": "polite_nudge" | "urgent_escalation" | "professional"
+   - "reasoning": Concise explanation of why this tone and urgency are appropriate.
    - "references_report": true
 """
 
@@ -25,7 +26,7 @@ def build_drafting_prompt(
     hours_pending: Optional[float] = None
 ) -> str:
     """
-    Dynamic context assembly without bloated RAG:
+    Dynamic context assembly:
     Separates static system instructions from dynamic workflow state.
     """
     dynamic_context = f"""[Dynamic Execution Context]
@@ -37,3 +38,4 @@ def build_drafting_prompt(
 - Stalled Duration: {f'{hours_pending:.1f} hours' if hours_pending is not None else 'Overdue'}
 """
     return f"{SYSTEM_INSTRUCTIONS}\n{dynamic_context}\nReturn valid JSON only:"
+

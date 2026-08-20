@@ -2,6 +2,7 @@ import os
 import json
 import logging
 from decimal import Decimal
+from typing import Optional
 from pydantic import BaseModel, Field
 from approval_loop.domain.models import ActionType
 from approval_loop.agent.prompts import build_drafting_prompt
@@ -11,13 +12,14 @@ logger = logging.getLogger("approval_loop.drafter")
 class DraftProposalResponse(BaseModel):
     """Structured response model for Gemini drafting proposal."""
     message: str = Field(description="Body message text of the notification")
-    tone: str = Field(default="professional", description="Tone of the communication")
+    tone: str = Field(default="professional", description="Tone: polite_nudge | urgent_escalation | professional")
+    reasoning: str = Field(default="Contextual communication drafted based on elapsed duration and business state.", description="Language reasoning context")
     references_report: bool = Field(default=True, description="Whether the report is referenced")
 
 class GeminiAgentDrafter:
     """
     Google GenAI SDK Drafter (Google Agent Framework).
-    Boundary: LLM proposes wording only; deterministic code owns the authoritative business figures.
+    Boundary: LLM proposes language wording and reasoning; deterministic code owns the authoritative business figures.
     """
     def __init__(self, api_key: str | None = None, model: str | None = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
@@ -39,13 +41,24 @@ class GeminiAgentDrafter:
         amount: Decimal,
         currency: str,
         description: str
-    ) -> str:
+    ) -> DraftProposalResponse:
         if action_type == ActionType.NUDGE:
-            return f"Hello, this is a reminder regarding expense report {report_id} submitted by {submitter} for {currency} {amount} ({description}). Please review and sign off when convenient."
+            msg = f"Hello, this is a reminder regarding expense report {report_id} submitted by {submitter} for {currency} {amount} ({description}). Please review and sign off when convenient."
+            tone = "polite_nudge"
+            reasoning = f"Initial follow-up for pending report {report_id}; friendly non-intrusive reminder."
         else:
-            return f"Hello, this is an automated escalation for expense report {report_id} from {submitter} for {currency} {amount} ({description}). The primary approver has not responded."
+            msg = f"Hello, this is an automated escalation for expense report {report_id} from {submitter} for {currency} {amount} ({description}). The primary approver has not responded."
+            tone = "urgent_escalation"
+            reasoning = f"Escalation triggered because primary approver exceeded stale threshold on report {report_id}."
 
-    def draft_wording(
+        return DraftProposalResponse(
+            message=msg,
+            tone=tone,
+            reasoning=reasoning,
+            references_report=True
+        )
+
+    def draft_proposal(
         self,
         action_type: ActionType,
         report_id: str,
@@ -55,12 +68,18 @@ class GeminiAgentDrafter:
         description: str,
         injected_mock_response: str | None = None,
         hours_pending: float | None = None
-    ) -> str:
+    ) -> DraftProposalResponse:
+        """Returns the full validated DraftProposalResponse with message, tone, and language reasoning."""
+        fallback = self._deterministic_fallback(action_type, report_id, submitter, amount, currency, description)
+
         # Injected mock takes priority for deterministic test scenarios
         if injected_mock_response:
-            return injected_mock_response
-
-        fallback = self._deterministic_fallback(action_type, report_id, submitter, amount, currency, description)
+            return DraftProposalResponse(
+                message=injected_mock_response,
+                tone="test_injected",
+                reasoning="Injected test mock wording",
+                references_report=True
+            )
 
         if not self.client:
             return fallback
@@ -89,7 +108,7 @@ class GeminiAgentDrafter:
                 if not proposal.message or not proposal.message.strip():
                     logger.warning("Empty message in structured response; falling back to deterministic template.")
                     return fallback
-                return proposal.message.strip()
+                return proposal
             except Exception as parse_err:
                 logger.warning(
                     "Structured output validation failed (%s). Malformed JSON/schema rejected; using deterministic fallback.",
@@ -100,3 +119,28 @@ class GeminiAgentDrafter:
         except Exception as e:
             logger.warning("Gemini generation failed (%s), using resilient fallback template", str(e))
             return fallback
+
+    def draft_wording(
+        self,
+        action_type: ActionType,
+        report_id: str,
+        submitter: str,
+        amount: Decimal,
+        currency: str,
+        description: str,
+        injected_mock_response: str | None = None,
+        hours_pending: float | None = None
+    ) -> str:
+        """Maintains backward compatibility by returning the validated body text string."""
+        proposal = self.draft_proposal(
+            action_type=action_type,
+            report_id=report_id,
+            submitter=submitter,
+            amount=amount,
+            currency=currency,
+            description=description,
+            injected_mock_response=injected_mock_response,
+            hours_pending=hours_pending
+        )
+        return proposal.message
+

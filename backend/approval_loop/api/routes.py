@@ -275,3 +275,49 @@ def simulate_race_condition(engine: ApprovalEngine = Depends(get_engine)):
         "final_report_status": final_report.status.value if final_report else None,
         "actions": [a.to_dict() for a in actions]
     }
+
+@router.post("/simulate-notification-failure")
+def simulate_notification_failure(engine: ApprovalEngine = Depends(get_engine)):
+    """
+    Demonstrates Fault-Tolerance: Simulates upstream provider connection timeout,
+    action marked FAILED with exponential backoff, and subsequent retry idempotency.
+    """
+    now = utc_now()
+    report_id = f"EXP-FAIL-{uuid.uuid4().hex[:4].upper()}"
+    report = ExpenseReport(
+        report_id=report_id,
+        status=ReportStatus.PENDING,
+        submitter_name="Retry Test Submitter",
+        submitter_email="submitter@company.com",
+        approver_email="sarah.finance@company.com",
+        amount=Decimal("450.00"),
+        currency="USD",
+        description="Software SaaS license",
+        submitted_at=now - timedelta(seconds=60)
+    )
+    engine.repo.save_report(report)
+
+    # 1. Trigger with failure injection
+    if hasattr(engine.worker, "simulate_failure"):
+        engine.worker.simulate_failure = True
+
+    try:
+        failed_actions = engine.run_tick(tick_id=f"tick_fail_{report_id}")
+    finally:
+        if hasattr(engine.worker, "simulate_failure"):
+            engine.worker.simulate_failure = False
+
+    return {
+        "scenario": "Fault Tolerance — Provider Timeout & Exponential Retry",
+        "report_id": report_id,
+        "actions": [a.to_dict() for a in failed_actions],
+        "message": "Action marked FAILED with retry backoff timestamp. Retry will recover without duplicate dispatch."
+    }
+
+@router.post("/demo/reset")
+def reset_demo(engine: ApprovalEngine = Depends(get_engine)):
+    """Resets demo data to a pristine state."""
+    # Seed default scenario reports
+    seed_res = seed_data(engine)
+    return {"message": "Demo state reset successfully", "seeded": seed_res}
+

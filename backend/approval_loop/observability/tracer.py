@@ -1,9 +1,20 @@
 import time
 import uuid
+import logging
 from datetime import datetime, timezone
 from typing import Optional, Any
 from contextlib import contextmanager
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger("approval_loop.tracer")
+
+# Attempt genuine OpenTelemetry SDK integration
+try:
+    from opentelemetry import trace as otel_trace
+    from opentelemetry.trace import Status, StatusCode
+    HAS_OTEL_SDK = True
+except ImportError:
+    HAS_OTEL_SDK = False
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -30,9 +41,11 @@ class TraceRecord(BaseModel):
 
 class OpenTelemetryTracer:
     """
-    OpenTelemetry-Compatible Lightweight Execution Tracer:
-    Traces the complete autonomous execution lifecycle:
-    observe -> eligibility -> claim -> gemini.draft -> validation -> policy.check -> notification -> state_transition
+    OpenTelemetry-Integrated Execution Tracer:
+    Bridges autonomous lifecycle execution directly to OpenTelemetry SDK standards
+    while maintaining a high-performance in-memory ring buffer for UI observability.
+    Spans traced:
+    observe -> eligibility -> skill.load -> claim -> gemini.draft -> validation -> policy.check -> notification -> state_transition
     """
     _instance = None
 
@@ -40,6 +53,12 @@ class OpenTelemetryTracer:
         self.max_stored_traces = max_stored_traces
         self.traces: list[TraceRecord] = []
         self._current_trace: Optional[TraceRecord] = None
+        self._otel_tracer = None
+        if HAS_OTEL_SDK:
+            try:
+                self._otel_tracer = otel_trace.get_tracer("approval-loop", "2.1.0")
+            except Exception as e:
+                logger.warning("Could not initialize OTel SDK tracer: %s", str(e))
 
     @classmethod
     def get_tracer(cls) -> "OpenTelemetryTracer":
@@ -74,15 +93,41 @@ class OpenTelemetryTracer:
     @contextmanager
     def start_span(self, name: str, attributes: Optional[dict[str, Any]] = None):
         trace_id = self._current_trace.trace_id if self._current_trace else f"trace_{uuid.uuid4().hex[:12]}"
+        
+        # Sanitize attributes to guarantee no secret or credential leaks
+        sanitized_attrs = {}
+        if attributes:
+            for k, v in attributes.items():
+                if any(sec in k.lower() for sec in ["key", "secret", "password", "token", "auth"]):
+                    sanitized_attrs[k] = "[REDACTED]"
+                else:
+                    sanitized_attrs[k] = v
+
         span = SpanRecord(
             trace_id=trace_id,
             name=name,
             start_time=utc_now_iso(),
-            attributes=attributes or {}
+            attributes=sanitized_attrs
         )
         start_mono = time.perf_counter()
+        
+        # Optional real OpenTelemetry SDK span
+        otel_span_cm = None
+        if self._otel_tracer:
+            try:
+                otel_span_cm = self._otel_tracer.start_as_current_span(name)
+            except Exception:
+                otel_span_cm = None
+
         try:
-            yield span
+            if otel_span_cm:
+                with otel_span_cm as otel_s:
+                    for k, v in sanitized_attrs.items():
+                        if isinstance(v, (str, bool, int, float)):
+                            otel_s.set_attribute(k, v)
+                    yield span
+            else:
+                yield span
             span.status = "OK"
         except Exception as e:
             span.status = "ERROR"
@@ -98,3 +143,4 @@ class OpenTelemetryTracer:
 
     def get_recent_traces(self, limit: int = 20) -> list[dict]:
         return [t.model_dump() for t in self.traces[-limit:]]
+

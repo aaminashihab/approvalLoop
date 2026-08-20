@@ -17,7 +17,7 @@ from approval_loop.validator.validator import DeterministicValidator
 from approval_loop.policy.policy_engine import PolicyEngine, PolicyDecisionEnum
 from approval_loop.observability.tracer import OpenTelemetryTracer
 from approval_loop.skills.skill_registry import SkillRegistry
-from approval_loop.worker.worker import MockNotificationWorker
+from approval_loop.worker.worker import BaseNotificationProvider, MockNotificationWorker
 
 logger = logging.getLogger("approval_loop.engine")
 
@@ -33,7 +33,7 @@ class ApprovalEngine:
         registry: ApproverRegistry,
         drafter: GeminiAgentDrafter,
         validator: DeterministicValidator,
-        worker: MockNotificationWorker,
+        worker: BaseNotificationProvider,
         policy_engine: Optional[PolicyEngine] = None,
         tracer: Optional[OpenTelemetryTracer] = None,
         skill_registry: Optional[SkillRegistry] = None

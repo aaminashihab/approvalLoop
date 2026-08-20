@@ -212,23 +212,40 @@ chmod +x deploy.sh
 
 ---
 
-## 🧪 Automated Testing (39 Tests)
+## 🧪 Automated Testing (47 Tests Passing)
 
 Run the full automated test suite:
 
 ```bash
-pytest -v backend/tests
+pytest -v
 ```
 
 ```text
-============================= 39 passed in 0.31s ==============================
+============================= 47 passed in 2.80s ==============================
 ```
+
+Test coverage includes:
+- **Deterministic State Machine:** All legal transitions and illegal jump rejection
+- **4-Point Safety Validator:** Recipient, Report ID, Decimal amount, and State validation
+- **Corporate Policy Engine:** Domain restrictions, high-value director threshold ($\ge \$5,000$), state invariants, and environment guards
+- **Transactional Outbox Claim:** Atomic idempotency and race deduplication
+- **Notification Provider Hierarchy:** Mock simulator with latency/fault injection and Production adapter
+- **Gemini Structured Output:** Tone and reasoning validation, markdown fence stripping, and resilient offline templates
+- **OpenTelemetry Tracer:** Span lifecycle and credential sanitization
+- **1,000-Report Scale Simulation:** 1,000 concurrent synthetic approval lifecycles evaluated in <0.1s with 0 duplicate sends and 0 unsafe transitions
 
 ---
 
 ## 🎯 Hackathon Track: Taskmaster
 
 ApprovalLoop is purpose-built for the **Taskmaster** track. It is not a chatbot; it is a **bounded autonomous agent** that executes background operational workflows unprompted, with mathematical, transactional, and policy-governed safety guarantees.
+
+---
+
+## 🛡️ Limitations & Honest Disclosure
+
+- **Notification Provider:** For hackathon demonstration and testing safety, the system defaults to `MockNotificationProvider`, simulating provider idempotency, receipt tracking, and network fault injection without sending unsolicited emails to real mailboxes. The architecture uses a clean `BaseNotificationProvider` abstraction so that an enterprise provider (e.g. SendGrid, Google Cloud Tasks, or Corporate SMTP) can be substituted in production without altering agent orchestration logic.
+- **Transactional Firestore:** In local test suites, `InMemoryRepository` provides thread-safe dictionary storage with lock synchronization; in cloud deployment, `FirestoreRepository` provides ACID document transactions.
 
 ---
 
@@ -246,7 +263,8 @@ Or demonstrate interactively in the web dashboard (**http://127.0.0.1:8080**):
 | **0:00–0:30** | **Problem Statement** | *“Expense approvals silently stall because everyone is waiting for someone else.”* |
 | **0:30–1:15** | **Silence & Stalled Approval** | Show `EXP-102` stalled in `Pending` state. *“Nobody prompted an agent. But the clock is running.”* |
 | **1:15–2:00** | **Autonomous Workflow** | Cloud Scheduler wakes the service $\rightarrow$ Skill loaded $\rightarrow$ Gemini 3.5 Flash drafts $\rightarrow$ 4-Point Validator & Policy Engine authorize $\rightarrow$ notification dispatched $\rightarrow$ state transitions `Pending → Nudged`. |
-| **2:00–2:40** | **Safety Intercept** | Click **"Safety Intercept Demo"**. Adversarial prompt proposes sending \$99,999 to an external attacker $\rightarrow$ Deterministic Validator rejects it (**`BLOCKED`**). |
-| **2:40–3:20** | **Race & Idempotency** | Click **"Scenario 13 Race Test"**. Approver signs off mid-flight while notification is in transit $\rightarrow$ transition is **`SKIPPED`** and report status is safely preserved as **`Resolved`**. Repeated ticks produce **0 duplicate sends**. |
-| **3:20–3:50** | **Google Cloud Proof** | Show Cloud Run service, Cloud Scheduler cron trigger, Firestore collections, AgBOM metadata (`/api/agbom`), OpenTelemetry-compatible traces (`/api/traces`), and live `/healthz` endpoint. |
-| **3:50–4:00** | **Closing** | *“ApprovalLoop doesn't wait for another prompt. It notices, decides within strict boundaries, acts, and records what happened.”* |
+| **2:00–2:45** | **Safety Intercept Demo** | Click **"Adversarial Test"**. Malicious prompt proposes sending \$99,999 to an external attacker $\rightarrow$ Deterministic Validator & Policy Engine reject it (**`BLOCKED`**). |
+| **2:45–3:30** | **Race Condition Guard** | Click **"Race Condition"**. Approver signs off mid-flight while notification is in transit $\rightarrow$ transition is **`SKIPPED`** and report status is safely preserved as **`Resolved`**. Repeated ticks produce **0 duplicate sends**. |
+| **3:30–4:00** | **Fault Tolerance & Retry** | Click **"Retry / Timeout"**. Upstream provider timeout injects failure $\rightarrow$ Action marked **`FAILED`** with exponential backoff timestamp $\rightarrow$ Sub-cycle retry recovers safely. |
+| **4:00–4:30** | **Closing & Observability** | Show OpenTelemetry trace waterfall (`/api/traces`), AgBOM runtime manifest (`/api/agbom`), and Proof-of-Autonomy counter (**0 human prompts required**). |
+

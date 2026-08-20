@@ -57,6 +57,18 @@ export const api = {
     return res.json();
   },
 
+  async simulateNotificationFailure(): Promise<any> {
+    const res = await fetch(`${API_BASE}/simulate-notification-failure`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to simulate notification failure');
+    return res.json();
+  },
+
+  async resetDemo(): Promise<any> {
+    const res = await fetch(`${API_BASE}/demo/reset`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to reset demo state');
+    return res.json();
+  },
+
   async resolveReport(reportId: string): Promise<void> {
     const res = await fetch(`${API_BASE}/reports/${encodeURIComponent(reportId)}/resolve`, {
       method: 'POST'
@@ -64,3 +76,4 @@ export const api = {
     if (!res.ok) throw new Error('Failed to resolve report');
   }
 };
+
