@@ -1,10 +1,10 @@
-# 🚀 ApprovalLoop
+#  ApprovalLoop
 
 **ApprovalLoop is an autonomous AI agent that monitors stalled expense approvals and takes bounded, validated action without waiting for a human prompt.**
 
 ---
 
-## 📌 Problem
+##  Problem
 
 Modern enterprise operations silently grind to a halt because **approvals stall in human inboxes**.
 
@@ -12,7 +12,7 @@ An employee submits an expense report, access request, or vendor invoice. The de
 
 ---
 
-## 💡 Solution
+##  Solution
 
 **ApprovalLoop** is an unprompted autonomous follow-up agent that monitors workflow health and acts on stalled human tasks.
 
@@ -20,7 +20,7 @@ Driven by a background schedule (**Google Cloud Scheduler**), ApprovalLoop wakes
 
 ---
 
-## 🤖 Why This Is an Autonomous Agent (Not a Chatbot)
+##  Why This Is an Autonomous Agent (Not a Chatbot)
 
 Unlike conversational assistants that wait for user prompts:
 
@@ -35,7 +35,7 @@ Unlike conversational assistants that wait for user prompts:
 
 ---
 
-## 🔑 Core Architecture Principle: *“LLM proposes. Code disposes.”*
+##  Core Architecture Principle: *“LLM proposes. Code disposes.”*
 
 In autonomous financial and operational systems, non-deterministic models must **never** hold authoritative power over state changes, money, or recipients.
 
@@ -53,7 +53,7 @@ In autonomous financial and operational systems, non-deterministic models must *
 
 ---
 
-## 🔄 Autonomous Workflow & Architecture
+##  Autonomous Workflow & Architecture
 
 <p align="center">
   <img src="docs/architecture_diagram.svg" alt="ApprovalLoop Software Architecture Diagram" width="100%" />
@@ -99,7 +99,7 @@ flowchart TD
 
 ---
 
-## 🛡️ Safety & Reliability Architecture
+##  Safety & Reliability Architecture
 
 ApprovalLoop implements a **4-Point Deterministic Safety Validator + Corporate Policy Engine + Transactional Idempotency Gate**:
 
@@ -150,7 +150,7 @@ ApprovalLoop implements a **4-Point Deterministic Safety Validator + Corporate P
 
 ---
 
-## ☁️ Google Cloud Proof & Technologies
+##  Google Cloud Proof & Technologies
 
 - **Gemini 3.5 Flash (`gemini-3.5-flash`):** Default model for contextual language generation.
 - **Google Agent Framework (Google GenAI SDK `google-genai`):** Official Python SDK for invoking Gemini models.
@@ -160,7 +160,7 @@ ApprovalLoop implements a **4-Point Deterministic Safety Validator + Corporate P
 
 ---
 
-## 💻 Local Setup & Quickstart
+##  Local Setup & Quickstart
 
 ### 1. Prerequisites
 - Python 3.10+
@@ -183,7 +183,7 @@ Open **http://127.0.0.1:8080** in your browser.
 
 ---
 
-## ⚙️ Environment Variables
+##  Environment Variables
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
@@ -197,7 +197,7 @@ Open **http://127.0.0.1:8080** in your browser.
 
 ---
 
-## 🚀 Google Cloud Deployment
+##  Google Cloud Deployment
 
 Deploy with one command using the provided script:
 
@@ -212,7 +212,7 @@ chmod +x deploy.sh
 
 ---
 
-## 🧪 Automated Testing (47 Tests Passing)
+##  Automated Testing (47 Tests Passing)
 
 Run the full automated test suite:
 
@@ -236,11 +236,6 @@ Test coverage includes:
 
 ---
 
-## 🎯 Hackathon Track: Taskmaster
-
-ApprovalLoop is purpose-built for the **Taskmaster** track. It is not a chatbot; it is a **bounded autonomous agent** that executes background operational workflows unprompted, with mathematical, transactional, and policy-governed safety guarantees.
-
----
 
 ## 🛡️ Limitations & Honest Disclosure
 
@@ -249,22 +244,5 @@ ApprovalLoop is purpose-built for the **Taskmaster** track. It is not a chatbot;
 
 ---
 
-## 🎬 4-Minute Demo Script
 
-Run the automated 5-scenario demo in terminal:
-```bash
-python evals/run_demo_scenarios.py
-```
-
-Or demonstrate interactively in the web dashboard (**http://127.0.0.1:8080**):
-
-| Time | Scene | Action & Narrative |
-| :--- | :--- | :--- |
-| **0:00–0:30** | **Problem Statement** | *“Expense approvals silently stall because everyone is waiting for someone else.”* |
-| **0:30–1:15** | **Silence & Stalled Approval** | Show `EXP-102` stalled in `Pending` state. *“Nobody prompted an agent. But the clock is running.”* |
-| **1:15–2:00** | **Autonomous Workflow** | Cloud Scheduler wakes the service $\rightarrow$ Skill loaded $\rightarrow$ Gemini 3.5 Flash drafts $\rightarrow$ 4-Point Validator & Policy Engine authorize $\rightarrow$ notification dispatched $\rightarrow$ state transitions `Pending → Nudged`. |
-| **2:00–2:45** | **Safety Intercept Demo** | Click **"Adversarial Test"**. Malicious prompt proposes sending \$99,999 to an external attacker $\rightarrow$ Deterministic Validator & Policy Engine reject it (**`BLOCKED`**). |
-| **2:45–3:30** | **Race Condition Guard** | Click **"Race Condition"**. Approver signs off mid-flight while notification is in transit $\rightarrow$ transition is **`SKIPPED`** and report status is safely preserved as **`Resolved`**. Repeated ticks produce **0 duplicate sends**. |
-| **3:30–4:00** | **Fault Tolerance & Retry** | Click **"Retry / Timeout"**. Upstream provider timeout injects failure $\rightarrow$ Action marked **`FAILED`** with exponential backoff timestamp $\rightarrow$ Sub-cycle retry recovers safely. |
-| **4:00–4:30** | **Closing & Observability** | Show OpenTelemetry trace waterfall (`/api/traces`), AgBOM runtime manifest (`/api/agbom`), and Proof-of-Autonomy counter (**0 human prompts required**). |
 
