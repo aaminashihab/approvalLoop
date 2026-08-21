@@ -55,6 +55,9 @@ class Settings(BaseModel):
     gemini_model: str = Field(
         default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     )
+    allow_insecure_demo_auth: bool = Field(
+        default_factory=lambda: os.getenv("ALLOW_INSECURE_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
+    )
     firestore_collection_reports: str = "expense_reports"
     firestore_collection_actions: str = "approval_actions"
     firestore_collection_agents: str = "agent_registry"
@@ -71,6 +74,8 @@ class Settings(BaseModel):
     def validate_production_safety(self):
         """Hard production-hardening validation guards."""
         if self.app_env == AppEnvironment.PRODUCTION:
+            if self.allow_insecure_demo_auth:
+                raise ValueError("PRODUCTION error: ALLOW_INSECURE_DEMO_AUTH cannot be enabled when APP_ENV=production.")
             if not self.admin_fallback_email or "example.com" in self.admin_fallback_email:
                 raise ValueError("PRODUCTION error: ADMIN_FALLBACK_EMAIL must be a configured corporate escalation address.")
             if self.scheduler_api_key == "dev-scheduler-secret-key":

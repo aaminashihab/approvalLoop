@@ -110,3 +110,21 @@ def test_unauthorized_action_capability_rejection(setup_identity):
     ok, reason, _ = id_provider.verify_agent_request(proposal, auth_ctx)
     assert ok is False
     assert "Action Permission Denied" in reason
+
+def test_oidc_unverified_token_rejected(setup_identity):
+    registry, id_provider = setup_identity
+    fake_oidc_jwt = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJzdWIiOiIxMjM0NTY3ODkwIn0.unverifiedsignature"
+    
+    proposal = AgentActionProposal(
+        agent_id="finance-agent",
+        agent_version="1.2.0",
+        action_name="issue_refund",
+        target_resource_id="REF-100",
+        amount=Decimal("1500.00"),
+        recipient="customer@company.com"
+    )
+    auth_ctx = AgentAuthContext(agent_id="finance-agent", agent_version="1.2.0", token=fake_oidc_jwt)
+    
+    ok, reason, _ = id_provider.verify_agent_request(proposal, auth_ctx)
+    assert ok is False
+    assert "Invalid GCP IAM OIDC Token" in reason

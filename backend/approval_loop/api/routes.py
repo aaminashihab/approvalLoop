@@ -15,7 +15,7 @@ from approval_loop.gateway.gateway import AgentGateway
 from approval_loop.memory.memory_bank import MemoryBankService
 from approval_loop.runtime.async_runtime import AsyncAgentRuntime
 from approval_loop.agent.fleet import FinanceAgent, SupportAgent, SalesAgent
-from approval_loop.api.auth import verify_scheduler_auth, verify_admin_auth
+from approval_loop.api.auth import verify_scheduler_auth, verify_admin_auth, verify_operator_auth
 
 router = APIRouter(prefix="/api")
 
@@ -189,7 +189,10 @@ def propose_agent_action(
     return decision.to_dict()
 
 @router.get("/gateway/actions/pending")
-def list_pending_gateway_actions(gateway: AgentGateway = Depends(get_gateway)):
+def list_pending_gateway_actions(
+    gateway: AgentGateway = Depends(get_gateway),
+    operator_principal: str = Depends(verify_operator_auth)
+):
     """Returns actions awaiting human-in-the-loop approval."""
     return gateway.list_pending_actions()
 
@@ -197,27 +200,35 @@ def list_pending_gateway_actions(gateway: AgentGateway = Depends(get_gateway)):
 def approve_gateway_action(
     action_id: str,
     req: HumanApprovalRequest,
-    gateway: AgentGateway = Depends(get_gateway)
+    gateway: AgentGateway = Depends(get_gateway),
+    operator_principal: str = Depends(verify_operator_auth)
 ):
     """Human approval sign-off: resumes paused workflow and triggers execution."""
     try:
-        decision = gateway.approve_action(action_id, operator=req.operator, notes=req.notes)
+        decision = gateway.approve_action(action_id, operator=operator_principal, notes=req.notes)
         return {"message": "Action approved and dispatched", "decision": decision.to_dict()}
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        err_msg = str(e)
+        if "already" in err_msg.lower():
+            raise HTTPException(status_code=409, detail=err_msg)
+        raise HTTPException(status_code=404, detail=err_msg)
 
 @router.post("/gateway/actions/{action_id}/reject")
 def reject_gateway_action(
     action_id: str,
     req: HumanApprovalRequest,
-    gateway: AgentGateway = Depends(get_gateway)
+    gateway: AgentGateway = Depends(get_gateway),
+    operator_principal: str = Depends(verify_operator_auth)
 ):
     """Human rejection: terminates workflow with audit record."""
     try:
-        decision = gateway.reject_action(action_id, operator=req.operator, notes=req.notes)
+        decision = gateway.reject_action(action_id, operator=operator_principal, notes=req.notes)
         return {"message": "Action rejected", "decision": decision.to_dict()}
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        err_msg = str(e)
+        if "already" in err_msg.lower():
+            raise HTTPException(status_code=409, detail=err_msg)
+        raise HTTPException(status_code=404, detail=err_msg)
 
 # ==========================================
 # 4. MEMORY BANK & ASYNC RUNTIME (Requirements 8, 9)

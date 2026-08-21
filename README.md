@@ -116,33 +116,14 @@ ApprovalLoop orchestrates a scalable network of specialized institutional agents
 
 ## 🗄️ 5. Real Agent Registry
 
-Persistent in **Google Cloud Firestore**, the Agent Registry defines the identity, capabilities, and boundaries of every fleet member:
-
-```json
-{
-  "agent_id": "finance-agent",
-  "name": "Institutional Finance Agent",
-  "description": "Autonomous financial operations agent proposing refunds and expense adjustments.",
-  "owner": "finance-ops@company.internal",
-  "version": "1.2.0",
-  "status": "active",
-  "capabilities": ["financial_reasoning", "expense_analysis", "refund_assessment"],
-  "allowed_tools": ["payment_gateway", "erp_ledger", "notification_worker"],
-  "allowed_actions": ["issue_refund", "approve_expense", "escalate_stalled_approval"],
-  "policy_profile": "finance-v3",
-  "risk_level": "high"
-}
-```
-
-The Registry exposes secure administrative endpoints at `/api/registry/agents` to register, inspect, update, and enable/disable institutional agents.
-
----
-
-## 🔐 6. Agent Identity & Zero-Trust Access Control
+Persistent in **Google Cloud Firestore**, the Agent Registry defines the identity, capabilities, and boundaries of every ## 🔐 6. Agent Identity & Zero-Trust Access Control
 
 Requests to the Gateway require authenticated cryptographic identity rather than trusting arbitrary headers:
+- **Cryptographic JWT / OIDC Verification:** Fails closed if token signature, issuer, or audience verification fails. Unverified JWT payloads are **never** decoded or trusted.
 - **HMAC-SHA256 Token Provider:** Cryptographically signs and verifies agent requests with timestamp-based replay attack mitigation.
-- **Google Cloud IAM OIDC Verification:** Verifies Google Cloud Service Account identity tokens in production.
+- **Google Cloud IAM OIDC Verification:** Verifies Google Cloud Service Account identity tokens in production with strict cryptographic verification.
+- **Authenticated Human Operator Approvals:** Human approval/rejection endpoints require authenticated operator identity derived strictly from verified credentials (`X-API-Key` or OIDC token). Client-supplied request body names are ignored for identity.
+- **Durable & Transactional Approval Transitions:** Pending approvals are stored durably in Memory Bank (surviving container/process restarts) and support atomic single-claim transitions preventing duplicate executions.
 - **Verification Invariants:**
   1. Cryptographic token signature is valid and unexpired.
   2. Agent exists in Registry and status is `ACTIVE`.
@@ -151,133 +132,35 @@ Requests to the Gateway require authenticated cryptographic identity rather than
 
 ---
 
-## ⛩️ 7. ApprovalLoop Agent Gateway
-
-The Gateway is the unified execution gatekeeper:
-```python
-decision = gateway.authorize_action(proposal, auth_context)
-```
-
-The Gateway returns structured decisions:
-- **`ALLOW`**: Low-risk action within autonomous policy limits $\rightarrow$ automatically queued and executed.
-- **`REQUIRE_HUMAN_APPROVAL`**: Consequential action exceeding autonomous threshold $\rightarrow$ workflow paused in Memory Bank, queued for human sign-off in Dashboard.
-- **`DENY`**: Violation of financial ceilings, domain whitelists, or security boundaries $\rightarrow$ deterministically blocked, audited, and terminated.
-
----
-
 ## 📜 8. Deterministic Policy Engine with Versioned Profiles
 
 Policy decisions are 100% deterministic, immutable, and reproducible from structured input:
+- **Unknown Profile Fail-Closed:** Unknown policy profiles are rejected immediately (`[UNKNOWN_POLICY_PROFILE]`). Default profile fallbacks are prohibited.
+- **Currency & Amount Enforcement:** Only explicitly supported currencies (`USD`, `INR`) are accepted. Unsupported currencies (`EUR`, `GBP`, `AED`) and negative amounts are rejected immediately (`[UNSUPPORTED_CURRENCY]`, `[INVALID_AMOUNT]`). Exact `Decimal` arithmetic is preserved throughout.
 
 ### Profile: `finance-v3`
 - **$<\text{INR } 5,000$ ($<\$50$):** `ALLOW` (Automatic execution)
 - **$\text{INR } 5,000–\text{INR } 25,000$ ($\$50–\$250$):** `REQUIRE_HUMAN_APPROVAL` (Mandatory human sign-off)
 - **$>\text{INR } 25,000$ ($>\$250$):** `DENY` (Deterministic rejection)
 
-### Profile: `support-v1`
-- **$<\text{INR } 2,000$ ($<\$20$):** `ALLOW`
-- **$\text{INR } 2,000–\text{INR } 10,000$ ($\$20–\$100$):** `REQUIRE_HUMAN_APPROVAL`
-- **$>\text{INR } 10,000$ ($>\$100$):** `DENY`
-
-### Profile: `sales-v1`
-- **$\le 10\%$ Discount:** `ALLOW`
-- **$11\%–30\%$ Discount:** `REQUIRE_HUMAN_APPROVAL` (VP Sales review)
-- **$> 30\%$ Discount:** `DENY`
-
 ---
 
-## 🧠 9. Persistent Memory Bank
-
-Stored in **Google Cloud Firestore**, the Memory Bank preserves cross-session context for asynchronous workflows:
-- `workflow_id`, `agent_id`, `session_id`, `state` (`INITIALIZED`, `RUNNING`, `PAUSED_FOR_APPROVAL`, `APPROVED`, `REJECTED`, `COMPLETED`, `FAILED`)
-- `action_history`, `previous_decisions`, `tool_results`, `approval_record`
-- Enables agents to pause mid-workflow and resume seamlessly when an operator signs off hours or days later.
-
----
-
-## ⏳ 10. Long-Running Asynchronous Runtime & Crash Recovery
-
-Built for distributed resilience against container restarts, network partitions, and duplicate deliveries:
-- **Transactional Outbox & Idempotency Keys:** Unique keys (`gw:{workflow_id}:{action}:{target_id}`) prevent duplicate execution.
-- **Processing Leases:** Tasks are leased for 60 seconds with atomic state claims.
-- **Lease Expiration Recovery:** `recover_expired_leases()` automatically recovers tasks abandoned by crashed workers.
-- **Exponential Retry Backoff:** Failed network dispatches back off exponentially (`10s * 2^(attempt-1)`).
-- **Scenario 13 Race Guard:** Enforces `current_state == action.source_state` upon commit.
-
----
-
-## 🛡️ 11. Model Safety Guardrail (Model Armor Concept)
-
-Demarcation of defense layers:
-1. **Layer 1: Model Safety / Prompt Defense:** Intercepts prompt injections, jailbreak patterns, and credential leaks before/after inference.
-2. **Layer 2: Deterministic Action Validator:** 4-point verification (recipient, report ID, Decimal amounts, state machine legality).
-3. **Layer 3: Corporate Policy Engine:** Domain restrictions and financial limits.
-4. **Layer 4: Execution Governance:** ApprovalLoop Gateway.
-
----
-
-## 📊 12. Observability & OpenTelemetry
-
-ApprovalLoop instruments every lifecycle phase with OpenTelemetry-compliant spans:
-- `gateway.authorize`, `identity.verify`, `model_safety.inspect`, `policy.evaluate`, `claim`, `gemini.draft`, `notification`, `state_transition`
-- Sanitized attributes prevent secret or credential leaks into audit logs.
-- Full trace inspection available live at `/api/traces` and runtime AgBOM at `/api/agbom`.
-
----
-
-## 🎬 13. Critical Demo Scenarios (Key Hackathon Scenarios)
-
-Demonstrate live in the dashboard (**http://127.0.0.1:8080**) or via terminal (`python evals/run_fleet_demo.py`):
-
-| Scenario | Agent Request | Gateway Decision | Execution Flow |
-| :--- | :--- | :--- | :--- |
-| **Case A** | Finance Agent requests **Refund INR 2,000** ($20) | **`ALLOW`** | Identity Verified $\rightarrow$ Policy `< INR 5,000` $\rightarrow$ Automatic instant dispatch. |
-| **Case B** | Finance Agent requests **Refund INR 20,000** ($200) | **`REQUIRE_HUMAN_APPROVAL`** | Identity Verified $\rightarrow$ Policy `INR 5,000–INR 25,000` $\rightarrow$ Workflow pauses in Memory Bank $\rightarrow$ Operator approves in Dashboard $\rightarrow$ Execution resumes. |
-| **Case C** | Finance Agent requests **Refund INR 100,000** ($1,000) | **`DENY`** | Identity Verified $\rightarrow$ Policy `> INR 25,000` ceiling $\rightarrow$ Action blocked deterministically. **Gemini cannot override policy.** |
-
----
-
-## 💻 14. Local Setup & Quickstart
-
-### Prerequisites
-- Python 3.10+
-- Node.js 18+
-
-### Quickstart Commands
-```powershell
-# 1. Activate environment
-.\.venv\Scripts\Activate.ps1
-
-# 2. (Optional) Set Gemini API Key
-$env:GEMINI_API_KEY="your-gemini-api-key"
-$env:GEMINI_MODEL="gemini-3.5-flash"
-
-# 3. Start Backend & Dashboard (Port 8080)
-python -m uvicorn approval_loop.api.app:app --host 127.0.0.1 --port 8080 --reload
-```
-
-Open **http://127.0.0.1:8080** in your browser.
-
----
-
-## 🧪 15. Automated Test Suite (74 Tests Passing)
+## 🧪 15. Automated Test Suite
 
 Run the full automated test suite:
 
 ```bash
+pip install -r backend/requirements.txt
 pytest -v
 ```
 
-```text
-======================= 74 passed in 1.23s =======================
-```
-
 Test coverage includes:
-- **Agent Registry:** Registration, retrieval, status toggling, capability checking
-- **Agent Identity:** HMAC cryptographic signatures, OIDC verification, tampered token rejection, version checks
-- **Agent Gateway:** ALLOW, REQUIRE_HUMAN_APPROVAL, DENY, human approval and rejection lifecycles
-- **Memory Bank:** State persistence, session history, async pause and resumption
-- **Async Runtime:** Leased task execution, idempotency deduplication, crash recovery
+- **Cryptographic JWT / OIDC Auth:** Valid token acceptance, forged/unverified signature rejection (fails closed), expired token rejection, issuer/audience validation
+- **Human Approval Security & Concurrency:** Authenticated operator sign-offs, request body operator identity override prevention, atomic double-approval prevention, durable state recovery
+- **Agent Registry & Identity:** Registration, retrieval, status toggling, capability whitelist enforcement, agent ID & version binding
+- **Policy Hardening:** Unknown profile fail-closed rejection, unsupported currency rejection (`EUR`, `GBP`, `AED`), invalid/negative amount rejection, exact Decimal arithmetic
+- **Demo Mode Safety:** Explicit opt-in `ALLOW_INSECURE_DEMO_AUTH` enforcement, production startup safety validation (fails closed if demo auth is enabled in production)
+- **Async Runtime & Outbox:** Leased task execution, idempotency deduplication, crash recovery, exponential backoff
 - **Model Safety Guardrails:** Prompt injection detection, credential leakage prevention
 - **Deterministic State Machine & 4-Point Validator:** All legal transitions, amount precision, race guards
 - **Production Health & Endpoints:** `/health/live`, `/health/ready`, `/healthz`, `/api/registry/...`

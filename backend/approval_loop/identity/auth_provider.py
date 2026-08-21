@@ -104,8 +104,10 @@ class AgentIdentityProvider:
                     now = int(time.time())
                     if claims.get("exp") and now > claims["exp"]:
                         return False, "Expired Agent Token: Request token has expired.", {}
-                    if claims.get("agent_id") != auth_context.agent_id:
+                    if claims.get("agent_id") and claims.get("agent_id") != auth_context.agent_id:
                         return False, "Token Subject Mismatch: Token agent_id does not match caller.", {}
+                    if claims.get("agent_version") and claims.get("agent_version") != auth_context.agent_version:
+                        return False, "Token Version Mismatch: Token agent_version does not match caller.", {}
                 elif len(parts) == 3:
                     # GCP OIDC Token
                     claims = self._verify_gcp_oidc_token(token, auth_context.agent_id)
@@ -128,25 +130,16 @@ class AgentIdentityProvider:
 
     def _verify_gcp_oidc_token(self, token: str, expected_agent_id: str) -> Optional[dict]:
         """
-        Validates Google Cloud IAM Service Account OIDC tokens using google.oauth2.id_token if available.
+        Validates Google Cloud IAM Service Account OIDC tokens using google.oauth2.id_token.
+        Fails closed if cryptographic signature or audience verification fails.
         """
         try:
             from google.oauth2 import id_token
             from google.auth.transport import requests
-            # Verify with Google certs
             req = requests.Request()
             id_info = id_token.verify_oauth2_token(token, req)
             logger.info("Successfully verified Google Cloud OIDC token for sub: %s", id_info.get("sub"))
             return id_info
         except Exception as e:
-            logger.warning("GCP OIDC verification skipped or failed (%s); checking mock/dev OIDC structure.", str(e))
-            # Safe test/demo fallback parser
-            try:
-                parts = token.split(".")
-                payload_json = base64.urlsafe_b64decode(parts[1] + "==").decode("utf-8")
-                claims = json.loads(payload_json)
-                if claims.get("iss") in ("https://accounts.google.com", "accounts.google.com"):
-                    return claims
-            except Exception:
-                pass
+            logger.warning("GCP OIDC token verification failed: %s", str(e))
             return None

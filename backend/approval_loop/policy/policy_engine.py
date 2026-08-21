@@ -36,6 +36,7 @@ class PolicyEngine:
     """
     HIGH_VALUE_THRESHOLD = Decimal("5000.00")
     DISALLOWED_DOMAINS = {"external-attacker.com", "malicious.com", "unauthorized.attacker.com", "tempmail.com"}
+    SUPPORTED_CURRENCIES = {"USD", "INR"}
 
     # Policy profile threshold configurations (supports both USD and INR normalization)
     PROFILES = {
@@ -117,7 +118,15 @@ class PolicyEngine:
         Evaluates a structured proposal from the Gemini Agent Fleet against versioned deterministic policies.
         Returns: (decision: PolicyDecisionEnum, reason: str, policy_version: str)
         """
-        profile = self.PROFILES.get(profile_name, self.PROFILES["finance-v3"])
+        # 0. Fail Closed on Unknown Policy Profile
+        if profile_name not in self.PROFILES:
+            return (
+                PolicyDecisionEnum.DENY,
+                f"Policy Violation [UNKNOWN_POLICY_PROFILE]: Unknown policy profile '{profile_name}'. Execution blocked.",
+                "none"
+            )
+
+        profile = self.PROFILES[profile_name]
         policy_version = profile["version"]
 
         # 1. Global Domain Security Policy
@@ -129,7 +138,23 @@ class PolicyEngine:
                 policy_version
             )
 
-        # 2. Production Environment Guard
+        # 2. Currency & Amount Validation
+        if profile_name.startswith("finance") or profile_name.startswith("support"):
+            currency = proposal.currency.upper() if proposal.currency else "USD"
+            if currency not in self.SUPPORTED_CURRENCIES:
+                return (
+                    PolicyDecisionEnum.DENY,
+                    f"Policy Violation [UNSUPPORTED_CURRENCY]: Currency '{currency}' is not supported by policy profile '{profile_name}'. Accepted: {self.SUPPORTED_CURRENCIES}",
+                    policy_version
+                )
+            if proposal.amount is not None and proposal.amount < Decimal("0.00"):
+                return (
+                    PolicyDecisionEnum.DENY,
+                    f"Policy Violation [INVALID_AMOUNT]: Amount cannot be negative ({proposal.amount}).",
+                    policy_version
+                )
+
+        # 3. Production Environment Guard
         if self.settings.app_env == AppEnvironment.PRODUCTION:
             if proposal.target_resource_id.startswith("TEST-") or proposal.target_resource_id.startswith("ADV-"):
                 return (
@@ -138,7 +163,7 @@ class PolicyEngine:
                     policy_version
                 )
 
-        # 3. Profile-Specific Governance
+        # 4. Profile-Specific Governance
         if profile_name.startswith("finance"):
             amount = proposal.amount or Decimal("0.00")
             currency = proposal.currency.upper()
@@ -147,7 +172,6 @@ class PolicyEngine:
             auto_limit = profile["auto_approve_max"] if currency == "INR" else profile.get("auto_approve_usd", Decimal("50.00"))
             human_limit = profile["human_approval_max"] if currency == "INR" else profile.get("human_approval_usd", Decimal("250.00"))
 
-            # Special case for INR 5000 / 25000 thresholds
             if amount < auto_limit:
                 return (
                     PolicyDecisionEnum.ALLOW,
@@ -194,6 +218,12 @@ class PolicyEngine:
 
         elif profile_name.startswith("sales"):
             discount_pct = Decimal(str(proposal.parameters.get("discount_percent", 0)))
+            if discount_pct < Decimal("0.0"):
+                return (
+                    PolicyDecisionEnum.DENY,
+                    f"Policy Violation [INVALID_AMOUNT]: Discount percentage cannot be negative ({discount_pct}%).",
+                    policy_version
+                )
             auto_pct = profile["auto_discount_percent"]
             human_pct = profile["human_discount_percent"]
 
@@ -216,4 +246,4 @@ class PolicyEngine:
                     policy_version
                 )
 
-        return (PolicyDecisionEnum.ALLOW, f"Policy {policy_version}: Action passed default governance rules.", policy_version)
+        return (PolicyDecisionEnum.DENY, f"Policy Violation [UNKNOWN_POLICY_PROFILE]: Profile '{profile_name}' is not supported.", policy_version)

@@ -1,3 +1,4 @@
+import threading
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Any
@@ -22,6 +23,9 @@ class WorkflowState(str, Enum):
 class ApprovalRecord(BaseModel):
     required: bool = False
     status: str = "none"  # "none" | "pending" | "approved" | "rejected"
+    action_id: Optional[str] = None
+    proposal_id: Optional[str] = None
+    policy_version: Optional[str] = None
     requested_at: Optional[datetime] = None
     decided_at: Optional[datetime] = None
     decided_by: Optional[str] = None
@@ -83,30 +87,46 @@ class MemoryBankService:
     def __init__(self, repo: Any = None):
         self.repo = repo
         self._in_memory_records: dict[str, WorkflowMemoryRecord] = {}
+        self._lock = threading.Lock()
 
     def get_workflow(self, workflow_id: str) -> Optional[WorkflowMemoryRecord]:
         if self.repo and hasattr(self.repo, "get_workflow_memory"):
             return self.repo.get_workflow_memory(workflow_id)
-        return self._in_memory_records.get(workflow_id)
+        with self._lock:
+            return self._in_memory_records.get(workflow_id)
+
+    def get_workflow_by_action_id(self, action_id: str) -> Optional[WorkflowMemoryRecord]:
+        """Finds a workflow memory record by its action ID across durable storage."""
+        records = self.list_workflows()
+        for rec in records:
+            if rec.current_action_id == action_id:
+                return rec
+            if rec.approval_record and rec.approval_record.action_id == action_id:
+                return rec
+            if rec.metadata and rec.metadata.get("pending_action", {}).get("action_id") == action_id:
+                return rec
+        return None
 
     def save_workflow(self, record: WorkflowMemoryRecord) -> WorkflowMemoryRecord:
         record.updated_at = utc_now()
         if self.repo and hasattr(self.repo, "save_workflow_memory"):
             self.repo.save_workflow_memory(record)
         else:
-            self._in_memory_records[record.workflow_id] = record
+            with self._lock:
+                self._in_memory_records[record.workflow_id] = record
         return record
 
     def list_workflows(self, agent_id: Optional[str] = None, state: Optional[WorkflowState] = None) -> list[WorkflowMemoryRecord]:
         if self.repo and hasattr(self.repo, "list_workflow_memories"):
             records = self.repo.list_workflow_memories(agent_id=agent_id, state=state.value if state else None)
         else:
-            records = list(self._in_memory_records.values())
+            with self._lock:
+                records = list(self._in_memory_records.values())
 
         if agent_id:
             records = [r for r in records if r.agent_id == agent_id]
         if state:
-            records = [r for r in records if r.state == state]
+            records = [r for r in records if (r.state == state or r.state.value == (state.value if hasattr(state, "value") else str(state)))]
         return records
 
     def pause_for_approval(
@@ -114,7 +134,8 @@ class MemoryBankService:
         workflow_id: str,
         action_id: str,
         reason: str,
-        policy_version: str
+        policy_version: str,
+        proposal_id: Optional[str] = None
     ) -> WorkflowMemoryRecord:
         """Pauses a workflow waiting for human sign-off."""
         rec = self.get_workflow(workflow_id)
@@ -129,6 +150,9 @@ class MemoryBankService:
         rec.approval_record = ApprovalRecord(
             required=True,
             status="pending",
+            action_id=action_id,
+            proposal_id=proposal_id,
+            policy_version=policy_version,
             requested_at=now,
             operator_notes=reason
         )
@@ -140,6 +164,47 @@ class MemoryBankService:
             raise ValueError(f"Workflow '{workflow_id}' not found in Memory Bank.")
         rec.previous_decisions.append(decision_dict)
         return self.save_workflow(rec)
+
+    def claim_and_transition_approval(
+        self,
+        action_id: str,
+        approve: bool,
+        operator: str,
+        notes: str = ""
+    ) -> tuple[bool, str, Optional[WorkflowMemoryRecord]]:
+        """
+        Atomically claims a pending approval action and transitions its state.
+        Guarantees that concurrent approval requests result in exactly ONE successful transition.
+        """
+        with self._lock:
+            rec = self.get_workflow_by_action_id(action_id)
+            if not rec:
+                return False, f"Pending action '{action_id}' not found in durable approval queue.", None
+
+            if rec.state == WorkflowState.APPROVED:
+                return False, f"Action '{action_id}' has already been approved.", rec
+            elif rec.state == WorkflowState.REJECTED:
+                return False, f"Action '{action_id}' has already been rejected.", rec
+            elif rec.state == WorkflowState.COMPLETED:
+                return False, f"Action '{action_id}' has already been completed.", rec
+            elif rec.state != WorkflowState.PAUSED_FOR_APPROVAL:
+                return False, f"Action '{action_id}' is in state '{rec.state.value}' and not pending approval.", rec
+
+            now = utc_now()
+            rec.resumed_at = now
+            rec.approval_record.status = "approved" if approve else "rejected"
+            rec.approval_record.decided_at = now
+            rec.approval_record.decided_by = operator
+            rec.approval_record.operator_notes = notes
+
+            if approve:
+                rec.state = WorkflowState.APPROVED
+            else:
+                rec.state = WorkflowState.REJECTED
+                rec.completed_at = now
+
+            self.save_workflow(rec)
+            return True, "Transition committed", rec
 
     def resume_workflow(
         self,

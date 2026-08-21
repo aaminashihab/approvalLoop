@@ -47,9 +47,6 @@ class AgentGateway:
         self.worker = worker
         self.guardrail = guardrail or ModelSafetyGuardrail()
         self.tracer = tracer or OpenTelemetryTracer.get_tracer()
-        
-        # Pending Action Store for Human-in-the-Loop review
-        self._pending_actions: dict[str, dict[str, Any]] = {}
 
     def authorize_action(
         self,
@@ -167,7 +164,7 @@ class AgentGateway:
                     details={"action": proposal.action_name, "amount": str(proposal.amount), "recipient": proposal.recipient}
                 )
                 self._record_in_memory(proposal, decision)
-                # Pause workflow and store in pending queue
+                # Pause workflow and store in pending queue durably
                 self._store_pending_action(action_record_id, proposal, decision)
 
             else:  # DENY
@@ -214,42 +211,89 @@ class AgentGateway:
         self.memory_bank.save_workflow(rec)
 
     def _store_pending_action(self, action_id: str, proposal: AgentActionProposal, decision: GatewayDecision):
-        self._pending_actions[action_id] = {
+        """Persists pending approval state durably in Memory Bank (survives restarts & distributed nodes)."""
+        pending_data = {
             "action_id": action_id,
             "proposal": proposal.to_dict(),
             "decision": decision.to_dict(),
             "status": "pending_human_approval",
             "created_at": utc_now().isoformat(),
         }
+        wf = self.memory_bank.get_workflow(proposal.workflow_id)
+        if not wf:
+            wf = WorkflowMemoryRecord(
+                workflow_id=proposal.workflow_id,
+                agent_id=proposal.agent_id,
+                session_id=proposal.session_id or f"sess_{uuid.uuid4().hex[:8]}",
+                state=WorkflowState.PAUSED_FOR_APPROVAL,
+                policy_version=decision.policy_version
+            )
+        wf.metadata["pending_action"] = pending_data
+        self.memory_bank.save_workflow(wf)
         self.memory_bank.pause_for_approval(
             workflow_id=proposal.workflow_id,
             action_id=action_id,
             reason=decision.reason,
-            policy_version=decision.policy_version
+            policy_version=decision.policy_version,
+            proposal_id=proposal.proposal_id
         )
 
     def list_pending_actions(self) -> list[dict[str, Any]]:
-        return list(self._pending_actions.values())
+        """Reconstructs pending approval actions from durable Memory Bank storage."""
+        paused_workflows = self.memory_bank.list_workflows(state=WorkflowState.PAUSED_FOR_APPROVAL)
+        pending = []
+        for wf in paused_workflows:
+            pending_data = wf.metadata.get("pending_action")
+            if pending_data and pending_data.get("status") == "pending_human_approval":
+                pending.append(pending_data)
+            else:
+                proposal_dict = wf.action_history[-1] if wf.action_history else {}
+                decision_dict = wf.previous_decisions[-1] if wf.previous_decisions else {}
+                action_id = wf.current_action_id or (wf.approval_record.action_id if wf.approval_record else None) or f"act_{wf.workflow_id}"
+                pending.append({
+                    "action_id": action_id,
+                    "proposal": proposal_dict,
+                    "decision": decision_dict,
+                    "status": "pending_human_approval",
+                    "created_at": wf.paused_at.isoformat() if wf.paused_at else wf.created_at.isoformat(),
+                })
+        return pending
 
     def approve_action(self, action_id: str, operator: str = "Admin Operator", notes: str = "") -> GatewayDecision:
-        """Human approval resolution: Resumes workflow and triggers idempotent execution."""
-        pending = self._pending_actions.get(action_id)
-        if not pending:
-            raise ValueError(f"Pending action '{action_id}' not found in approval queue.")
+        """
+        Human approval resolution: Atomically claims and resumes workflow, triggering idempotent execution.
+        Prevents concurrent or duplicate approvals.
+        """
+        success, reason, wf = self.memory_bank.claim_and_transition_approval(
+            action_id=action_id,
+            approve=True,
+            operator=operator,
+            notes=notes
+        )
+        if not success:
+            raise ValueError(reason)
 
-        proposal_data = pending["proposal"]
-        proposal = AgentActionProposal(**proposal_data)
+        pending_data = wf.metadata.get("pending_action", {})
+        proposal_dict = pending_data.get("proposal") or (wf.action_history[-1] if wf.action_history else {})
+        decision_dict = pending_data.get("decision") or (wf.previous_decisions[-1] if wf.previous_decisions else {})
         
-        # Resume memory bank workflow
-        self.memory_bank.resume_workflow(proposal.workflow_id, approved=True, operator=operator, notes=notes)
+        if not proposal_dict:
+            raise ValueError(f"Proposal data for action '{action_id}' not found in workflow memory.")
+
+        proposal = AgentActionProposal(**proposal_dict)
 
         # Execute side effect
-        exec_ok, receipt_id, err = self._execute_proposal_action(proposal, pending["decision"], operator=operator)
+        exec_ok, receipt_id, err = self._execute_proposal_action(proposal, decision_dict, operator=operator)
 
-        pending["status"] = "approved_and_executed"
-        pending["executed_at"] = utc_now().isoformat()
-        pending["receipt_id"] = receipt_id
-        pending["approved_by"] = operator
+        # Record immutable approval details in metadata
+        if "pending_action" not in wf.metadata:
+            wf.metadata["pending_action"] = {}
+        wf.metadata["pending_action"]["status"] = "approved_and_executed"
+        wf.metadata["pending_action"]["executed_at"] = utc_now().isoformat()
+        wf.metadata["pending_action"]["receipt_id"] = receipt_id
+        wf.metadata["pending_action"]["approved_by"] = operator
+        wf.metadata["pending_action"]["notes"] = notes
+        self.memory_bank.save_workflow(wf)
 
         return GatewayDecision(
             decision_id=f"dec_app_{uuid.uuid4().hex[:8]}",
@@ -259,28 +303,52 @@ class AgentGateway:
             action_name=proposal.action_name,
             decision=GatewayDecisionEnum.ALLOW,
             reason=f"Human Approval Granted by {operator}. Executed with receipt {receipt_id}.",
-            policy_version=pending["decision"].get("policy_version", "finance-v3"),
+            policy_version=wf.policy_version or decision_dict.get("policy_version", "finance-v3"),
             risk_level="medium",
             identity_verified=True,
             validation_passed=True,
             safety_guardrail_passed=True,
             requires_human_approval=False,
-            action_record_id=action_id
+            action_record_id=action_id,
+            details={
+                "operator": operator,
+                "notes": notes,
+                "executed_at": utc_now().isoformat(),
+                "receipt_id": receipt_id,
+                "proposal_id": proposal.proposal_id
+            }
         )
 
     def reject_action(self, action_id: str, operator: str = "Admin Operator", notes: str = "") -> GatewayDecision:
-        """Human rejection resolution: Terminates paused workflow."""
-        pending = self._pending_actions.get(action_id)
-        if not pending:
-            raise ValueError(f"Pending action '{action_id}' not found in approval queue.")
+        """
+        Human rejection resolution: Atomically claims and terminates paused workflow with audit record.
+        Prevents concurrent or duplicate rejections.
+        """
+        success, reason, wf = self.memory_bank.claim_and_transition_approval(
+            action_id=action_id,
+            approve=False,
+            operator=operator,
+            notes=notes
+        )
+        if not success:
+            raise ValueError(reason)
 
-        proposal_data = pending["proposal"]
-        proposal = AgentActionProposal(**proposal_data)
+        pending_data = wf.metadata.get("pending_action", {})
+        proposal_dict = pending_data.get("proposal") or (wf.action_history[-1] if wf.action_history else {})
+        decision_dict = pending_data.get("decision") or (wf.previous_decisions[-1] if wf.previous_decisions else {})
+        
+        if not proposal_dict:
+            raise ValueError(f"Proposal data for action '{action_id}' not found in workflow memory.")
 
-        self.memory_bank.resume_workflow(proposal.workflow_id, approved=False, operator=operator, notes=notes)
-        pending["status"] = "rejected_by_human"
-        pending["rejected_at"] = utc_now().isoformat()
-        pending["rejected_by"] = operator
+        proposal = AgentActionProposal(**proposal_dict)
+
+        if "pending_action" not in wf.metadata:
+            wf.metadata["pending_action"] = {}
+        wf.metadata["pending_action"]["status"] = "rejected_by_human"
+        wf.metadata["pending_action"]["rejected_at"] = utc_now().isoformat()
+        wf.metadata["pending_action"]["rejected_by"] = operator
+        wf.metadata["pending_action"]["notes"] = notes
+        self.memory_bank.save_workflow(wf)
 
         return GatewayDecision(
             decision_id=f"dec_rej_{uuid.uuid4().hex[:8]}",
@@ -290,13 +358,19 @@ class AgentGateway:
             action_name=proposal.action_name,
             decision=GatewayDecisionEnum.DENY,
             reason=f"Human Approval Rejected by {operator}. Notes: {notes or 'No notes provided'}.",
-            policy_version=pending["decision"].get("policy_version", "finance-v3"),
+            policy_version=wf.policy_version or decision_dict.get("policy_version", "finance-v3"),
             risk_level="high",
             identity_verified=True,
             validation_passed=True,
             safety_guardrail_passed=True,
             requires_human_approval=False,
-            action_record_id=action_id
+            action_record_id=action_id,
+            details={
+                "operator": operator,
+                "notes": notes,
+                "rejected_at": utc_now().isoformat(),
+                "proposal_id": proposal.proposal_id
+            }
         )
 
     def _execute_proposal_action(

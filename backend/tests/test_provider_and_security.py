@@ -109,7 +109,9 @@ def test_verify_scheduler_auth_header_and_oidc():
         verify_scheduler_auth(settings=settings, x_api_key="wrong-key")
     assert exc_info.value.status_code == 401
     
-    # 3. Valid OIDC Token (mock JWT with 2 dots)
+    # 3. Unverified OIDC Token (mock JWT without cryptographic signature) fails closed (raises 401)
     mock_jwt = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20ifQ.signature1234567890abcdef"
     cred = HTTPAuthorizationCredentials(scheme="Bearer", credentials=mock_jwt)
-    assert verify_scheduler_auth(settings=settings, auth_cred=cred) is True
+    with pytest.raises(HTTPException) as exc_info:
+        verify_scheduler_auth(settings=settings, auth_cred=cred)
+    assert exc_info.value.status_code == 401
