@@ -1,5 +1,6 @@
 import threading
 from datetime import timedelta
+from typing import Optional, Any
 from approval_loop.storage.base import BaseRepository
 from approval_loop.domain.models import (
     ExpenseReport, ActionRecord, ReportStatus, ActionStatus,
@@ -11,6 +12,8 @@ class InMemoryRepository(BaseRepository):
         self.reports: dict[str, ExpenseReport] = {}
         self.actions: dict[str, ActionRecord] = {}
         self.active_claims: dict[str, str] = {}  # idempotency_key -> action_id
+        self.agents: dict[str, Any] = {}
+        self.workflow_memories: dict[str, Any] = {}
         self._lock = threading.Lock()
 
     def get_report(self, report_id: str) -> ExpenseReport | None:
@@ -124,3 +127,34 @@ class InMemoryRepository(BaseRepository):
 
             action.completed_at = utc_now()
             return action
+
+    # Agent Registry Operations
+    def save_agent_registration(self, agent: Any):
+        with self._lock:
+            self.agents[agent.agent_id] = agent
+
+    def get_agent_registration(self, agent_id: str) -> Any | None:
+        with self._lock:
+            return self.agents.get(agent_id)
+
+    def list_agent_registrations(self) -> list[Any]:
+        with self._lock:
+            return list(self.agents.values())
+
+    # Memory Bank Operations
+    def save_workflow_memory(self, record: Any):
+        with self._lock:
+            self.workflow_memories[record.workflow_id] = record
+
+    def get_workflow_memory(self, workflow_id: str) -> Any | None:
+        with self._lock:
+            return self.workflow_memories.get(workflow_id)
+
+    def list_workflow_memories(self, agent_id: Optional[str] = None, state: Optional[str] = None) -> list[Any]:
+        with self._lock:
+            records = list(self.workflow_memories.values())
+            if agent_id:
+                records = [r for r in records if getattr(r, "agent_id", None) == agent_id]
+            if state:
+                records = [r for r in records if getattr(getattr(r, "state", None), "value", str(getattr(r, "state", None))) == state]
+            return records

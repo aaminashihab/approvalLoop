@@ -1,4 +1,7 @@
-import { ExpenseReport, ActionRecord, AutonomyMetrics } from '../types/approval';
+import {
+  ExpenseReport, ActionRecord, AutonomyMetrics, AgentRegistration,
+  PendingAction, WorkflowMemoryRecord
+} from '../types/approval';
 
 const API_BASE = '/api';
 
@@ -18,6 +21,62 @@ export const api = {
   async getMetrics(): Promise<AutonomyMetrics> {
     const res = await fetch(`${API_BASE}/metrics`);
     if (!res.ok) throw new Error('Failed to fetch autonomy metrics');
+    return res.json();
+  },
+
+  async getAgents(): Promise<AgentRegistration[]> {
+    const res = await fetch(`${API_BASE}/registry/agents`);
+    if (!res.ok) throw new Error('Failed to fetch agent registry');
+    return res.json();
+  },
+
+  async getPendingActions(): Promise<PendingAction[]> {
+    const res = await fetch(`${API_BASE}/gateway/actions/pending`);
+    if (!res.ok) throw new Error('Failed to fetch pending actions');
+    return res.json();
+  },
+
+  async approveAction(actionId: string, operator: string = 'Enterprise Admin', notes: string = 'Approved from governance dashboard'): Promise<any> {
+    const res = await fetch(`${API_BASE}/gateway/actions/${encodeURIComponent(actionId)}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operator, notes })
+    });
+    if (!res.ok) throw new Error('Failed to approve action');
+    return res.json();
+  },
+
+  async rejectAction(actionId: string, operator: string = 'Enterprise Admin', notes: string = 'Rejected from governance dashboard'): Promise<any> {
+    const res = await fetch(`${API_BASE}/gateway/actions/${encodeURIComponent(actionId)}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operator, notes })
+    });
+    if (!res.ok) throw new Error('Failed to reject action');
+    return res.json();
+  },
+
+  async getWorkflows(): Promise<WorkflowMemoryRecord[]> {
+    const res = await fetch(`${API_BASE}/memory/workflows`);
+    if (!res.ok) throw new Error('Failed to fetch workflow memory bank');
+    return res.json();
+  },
+
+  async triggerScenarioA(): Promise<any> {
+    const res = await fetch(`${API_BASE}/demo/scenario-a`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to run Case A');
+    return res.json();
+  },
+
+  async triggerScenarioB(): Promise<any> {
+    const res = await fetch(`${API_BASE}/demo/scenario-b`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to run Case B');
+    return res.json();
+  },
+
+  async triggerScenarioC(): Promise<any> {
+    const res = await fetch(`${API_BASE}/demo/scenario-c`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to run Case C');
     return res.json();
   },
 
@@ -76,4 +135,3 @@ export const api = {
     if (!res.ok) throw new Error('Failed to resolve report');
   }
 };
-

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Optional, Any
 from approval_loop.storage.base import BaseRepository
 from approval_loop.domain.models import (
     ExpenseReport, ActionRecord, ReportStatus, ActionStatus,
@@ -7,10 +8,19 @@ from approval_loop.domain.models import (
 from google.cloud import firestore
 
 class FirestoreRepository(BaseRepository):
-    def __init__(self, project_id: str, reports_col: str = "expense_reports", actions_col: str = "approval_actions"):
+    def __init__(
+        self,
+        project_id: str,
+        reports_col: str = "expense_reports",
+        actions_col: str = "approval_actions",
+        agents_col: str = "agent_registry",
+        memory_col: str = "workflow_memories"
+    ):
         self.client = firestore.Client(project=project_id)
         self.reports_col = reports_col
         self.actions_col = actions_col
+        self.agents_col = agents_col
+        self.memory_col = memory_col
 
     def get_report(self, report_id: str) -> ExpenseReport | None:
         doc = self.client.collection(self.reports_col).document(report_id).get()
@@ -138,3 +148,42 @@ class FirestoreRepository(BaseRepository):
             return action
 
         return _apply_in_tx(transaction)
+
+    # Agent Registry Firestore Operations
+    def save_agent_registration(self, agent: Any):
+        data = agent.to_dict() if hasattr(agent, "to_dict") else agent.model_dump()
+        self.client.collection(self.agents_col).document(agent.agent_id).set(data)
+
+    def get_agent_registration(self, agent_id: str) -> Any | None:
+        doc = self.client.collection(self.agents_col).document(agent_id).get()
+        if doc.exists:
+            from approval_loop.domain.agent_registry import AgentRegistration
+            return AgentRegistration(**doc.to_dict())
+        return None
+
+    def list_agent_registrations(self) -> list[Any]:
+        docs = self.client.collection(self.agents_col).stream()
+        from approval_loop.domain.agent_registry import AgentRegistration
+        return [AgentRegistration(**d.to_dict()) for d in docs]
+
+    # Memory Bank Firestore Operations
+    def save_workflow_memory(self, record: Any):
+        data = record.to_dict() if hasattr(record, "to_dict") else record.model_dump()
+        self.client.collection(self.memory_col).document(record.workflow_id).set(data)
+
+    def get_workflow_memory(self, workflow_id: str) -> Any | None:
+        doc = self.client.collection(self.memory_col).document(workflow_id).get()
+        if doc.exists:
+            from approval_loop.memory.memory_bank import WorkflowMemoryRecord
+            return WorkflowMemoryRecord(**doc.to_dict())
+        return None
+
+    def list_workflow_memories(self, agent_id: Optional[str] = None, state: Optional[str] = None) -> list[Any]:
+        query = self.client.collection(self.memory_col)
+        if agent_id:
+            query = query.where("agent_id", "==", agent_id)
+        if state:
+            query = query.where("state", "==", state)
+        docs = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(50).stream()
+        from approval_loop.memory.memory_bank import WorkflowMemoryRecord
+        return [WorkflowMemoryRecord(**d.to_dict()) for d in docs]

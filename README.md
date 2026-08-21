@@ -1,181 +1,258 @@
-#  ApprovalLoop
+# 🚀 ApprovalLoop — Fortified Enterprise Fleet Upgrade
 
-**ApprovalLoop is an autonomous AI agent that monitors stalled expense approvals and takes bounded, validated action without waiting for a human prompt.**
+**ApprovalLoop is a deterministic execution governance gateway for autonomous AI agent fleets.**
 
----
+> **Core Architectural Invariant:**
+> **AI proposes. Deterministic policy decides. Infrastructure executes.**
 
-##  Problem
-
-Modern enterprise operations silently grind to a halt because **approvals stall in human inboxes**.
-
-An employee submits an expense report, access request, or vendor invoice. The designated approver travels, gets overwhelmed with meetings, or forgets. Nobody prompts an AI chatbot because nobody is watching the clock. The workflow silently stalls, deadlines pass, and business velocity is lost.
+ApprovalLoop bridges autonomous intelligence (**Google Gemini 3.5**, **Google Agent Framework**) with deterministic corporate governance, zero-trust cryptographic identity, persistent memory banks, leased async execution, and mathematical safety gates.
 
 ---
 
-##  Solution
+## 📌 1. The Problem
 
-**ApprovalLoop** is an unprompted autonomous follow-up agent that monitors workflow health and acts on stalled human tasks.
+Autonomous AI agents are transitioning from conversational chatbots into institutional operators capable of taking real-world actions: issuing financial refunds, approving expenses, granting sales discounts, and updating ERP ledgers.
 
-Driven by a background schedule (**Google Cloud Scheduler**), ApprovalLoop wakes up periodically, observes pending approval states, determines when an approval has become stale, calls **Gemini 3.5 Flash** to draft polite, contextual reminders, verifies every parameter against strict deterministic code invariants, checks corporate governance policy, claims the action atomically, dispatches notifications, and conditionally updates business state.
-
----
-
-##  Why This Is an Autonomous Agent (Not a Chatbot)
-
-Unlike conversational assistants that wait for user prompts:
-
-1. **Runs Asynchronously:** Executes in the background without human presence.
-2. **Wakes on Schedule:** Google Cloud Scheduler triggers execution cycles autonomously (`*/1 * * * *`).
-3. **Evaluates State:** Scans open approvals and evaluates elapsed time against immutable thresholds.
-4. **Plans & Drafts:** Decides required interventions (*Nudge* vs *Escalate*) and drafts contextual communication using Gemini 3.5 Flash with structured output validation.
-5. **Validates Before Action:** Enforces a strict 4-point deterministic safety validator gate.
-6. **Authorizes via Policy:** Evaluates corporate governance rules (domain whitelist, financial limits, environment guards).
-7. **Executes Bounded Action:** Dispatches notification payloads through a deterministic simulated worker with delivery receipt logging.
-8. **Continuous Lifecycle:** Persists audit records, records OpenTelemetry-compatible traces, sleeps, and repeats the loop indefinitely.
+However, deploying autonomous agents directly to production tools creates existential enterprise risks:
+1. **Direct Tool Authority:** When LLMs are equipped with direct tool-calling privileges, a single prompt injection, model hallucination, or ambiguous context can execute irreversible, unauthorized financial or state changes.
+2. **Silent Workflow Stalls:** Stalled human approvals in enterprise systems silently halt operations because nobody prompts a conversational assistant when an approver is out of office.
+3. **Session Amnesia:** Multi-step asynchronous workflows that require human sign-off lose context across disconnections or container restarts.
+4. **Duplicate Execution:** Network timeouts and overlapping scheduler invocations cause duplicate side-effect execution.
 
 ---
 
-##  Core Architecture Principle: *“LLM proposes. Code disposes.”*
+## 💡 2. Why Autonomous Agents Need Execution Governance
 
-In autonomous financial and operational systems, non-deterministic models must **never** hold authoritative power over state changes, money, or recipients.
+Non-deterministic models are brilliant at reasoning, context comprehension, and proposal formulation. They must **never** hold authoritative authorization over money, database state, or external side effects.
 
-| Decision / Property | Handled By | Safety Guarantee |
+ApprovalLoop enforces an absolute separation of concerns:
+
+| Responsibility | Component | Implementation |
 | :--- | :--- | :--- |
-| **Workflow State Machine** | Deterministic Code | Strict transitions (`Pending → Nudged → Escalated → Resolved`) |
-| **Monetary Values** | Python `Decimal` | Exact precision, zero floating-point drift |
-| **Elapsed Time & Stale Rules** | Deterministic Code | Evaluated on immutable timestamps against strict thresholds |
-| **Approver Hierarchy** | Approver Registry | Resolves primary, backup, and fail-closed corporate admin |
-| **Contextual Communication** | **Gemini 3.5 Flash (Google GenAI SDK)** | Polite, situation-aware structured language drafting |
-| **Safety Gate** | **4-Point Deterministic Validator** | Intercepts & blocks any recipient, amount, report ID, or state mismatch |
-| **Governance Authorization** | **Corporate Policy Engine** | Enforces domain restrictions, high-value financial rules, and env guards |
-| **Concurrency & Idempotency** | **Transactional Outbox Claim** | Atomic claim before drafting (`{report_id}:{action_type}`) |
-| **Race-Condition Safety** | **Conditional Transition Guard** | Enforces `current_state == action.source_state` |
+| **Reasoning & Proposals** | **Gemini Agent Fleet** | Gemini 3.5 via Google GenAI SDK emits structured `AgentActionProposal` |
+| **Identity & Authentication** | **Agent Identity Layer** | HMAC-SHA256 & Google Cloud IAM OIDC zero-trust token verification |
+| **Prompt & Payload Defense** | **Model Safety Guardrail** | Model Armor / Safety filters intercept prompt injections & secret leaks |
+| **Parameter Integrity** | **4-Point Safety Validator** | Deterministic mathematical checks (exact Decimal precision, ID matching) |
+| **Authorization Policy** | **Policy Engine** | Versioned deterministic profiles (`finance-v3`, `support-v1`, `sales-v1`) |
+| **Execution Governance** | **ApprovalLoop Gateway** | Emits `ALLOW`, `REQUIRE_HUMAN_APPROVAL`, or `DENY` decisions |
+| **Persistent Context** | **Memory Bank** | Firestore-backed cross-session state, action history, and pause/resume |
+| **Asynchronous Execution** | **Async Runtime & Workers** | Leased task execution with crash recovery and idempotency keys |
+| **Audit & Observability** | **OpenTelemetry** | Distributed traces and audit ledger reconstructing full causality |
 
 ---
 
-##  Autonomous Workflow & Architecture
+## 🏗️ 3. Target Architecture Diagram
 
-<p align="center">
-  <img src="docs/architecture_diagram.svg" alt="ApprovalLoop Software Architecture Diagram" width="100%" />
-</p>
-
-<p align="center">
-  <a href="docs/architecture_diagram.html">🔍 <b>Open Interactive Pan/Zoom Diagram</b></a> • 
-  <a href="docs/ARCHITECTURE.md">📖 <b>Read Complete Architecture Blueprint</b></a>
-</p>
-
-```mermaid
-flowchart TD
-    subgraph GCP["Google Cloud Platform"]
-        CS["Google Cloud Scheduler<br/>Cron: */1 * * * *"] -->|HTTP POST /api/tick| CR["Google Cloud Run<br/>FastAPI Backend"]
-        CR -->|Read / Write State| FS[("Google Cloud Firestore<br/>State &amp; Outbox")]
-    end
-
-    subgraph Engine["ApprovalEngine Orchestrator"]
-        CR --> OBS["1. Observe Open Approvals"]
-        OBS --> DEC["2. Decide Eligibility &amp; Action"]
-        DEC --> SKL["3. Runtime Skill Discovery<br/>Progressive Disclosure Loader"]
-        SKL --> CLM["4. Atomic Outbox Claim<br/>Key: report_id:action_type"]
-        
-        CLM -->|Transactional Lock Granted| GAI["5. Google GenAI SDK<br/>Gemini 3.5 Flash Drafter"]
-        GAI --> DRAFT["Structured Draft Proposal<br/>Pydantic Schema Validated"]
-        
-        DRAFT --> VAL{"6. 4-Point Deterministic<br/>Safety Validator"}
-        VAL -->|PASS| POL{"7. Corporate Policy Engine<br/>Domain &amp; Limit Authorization"}
-        VAL -->|FAIL / BLOCKED| BLK["Blocked &amp; Audited<br/>Dispatch Aborted"]
-        
-        POL -->|ALLOW| ACT["8. Notification Worker<br/>Dispatch Simulation &amp; Logging"]
-        POL -->|DENY| BLK
-        
-        ACT --> CG{"9. Conditional State Guard<br/>current == source_state"}
-        CG -->|MATCH| APP["State Applied<br/>Pending -&gt; Nudged"]
-        CG -->|MISMATCH / Resolved| SKP["State Skipped<br/>Resolved Preserved"]
-        
-        APP --> AUD[("Audit Ledger &amp; OTel Traces")]
-        SKP --> AUD
-        BLK --> AUD
-    end
+```text
+                       GEMINI AGENT FLEET
+         ┌─────────────────────┼─────────────────────┐
+   Finance Agent         Support Agent         Sales Agent
+ (Refunds/Expenses)    (Credits/Escalations)  (Discounts/Terms)
+         │                     │                     │
+         └─────────────────────┼─────────────────────┘
+                               │ Structured Proposal
+                               ▼
+                      ┌─────────────────┐
+                      │ AGENT REGISTRY  │
+                      │ & IDENTITY AUTH │
+                      └────────┬────────┘
+                               │ Verified Identity (HMAC / OIDC)
+                               ▼
+                      ┌─────────────────┐
+                      │  AGENT GATEWAY  │
+                      │  (ApprovalLoop) │
+                      └────────┬────────┘
+                               │
+               ┌───────────────┼───────────────┐
+               ▼               ▼               ▼
+          Model Safety      Policy        Deterministic
+           Guardrail        Engine          Validator
+         (Model Armor)  (Domain/Limits)  (Facts/Types)
+               │               │               │
+               └───────────────┼───────────────┘
+                               │
+                               ▼
+                      Gateway Authorization
+                               │
+                 ┌─────────────┴─────────────┐
+                 ▼                           ▼
+               ALLOW               REQUIRE_HUMAN_APPROVAL
+                 │                           │
+                 │                     Workflow Pauses
+                 │                           │
+                 │                     Human Decision
+                 │                     (Approve/Reject)
+                 │                           │
+                 └─────────────┬─────────────┘
+                               │ Resumed
+                               ▼
+                      ASYNC RUNTIME / WORKER
+                    (Idempotent, Leased Claims)
+                               │
+                 ┌─────────────┼─────────────┐
+                 ▼             ▼             ▼
+            External APIs  Notifications  Firestore State
+                 │
+                 ▼
+          MEMORY BANK (Persistent Cross-Session Context)
+                 │
+                 ▼
+       AUDIT LEDGER & OPENTELEMETRY TRACES
 ```
 
 ---
 
-##  Safety & Reliability Architecture
+## 🤖 4. Gemini Agent Fleet
 
-ApprovalLoop implements a **4-Point Deterministic Safety Validator + Corporate Policy Engine + Transactional Idempotency Gate**:
+ApprovalLoop orchestrates a scalable network of specialized institutional agents built on the **Google Agent Framework (Google GenAI SDK `google-genai`)** with **Gemini 3.5 Flash**:
 
-```
-[Candidate Action]
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ 1. Transactional Idempotency Gate                      │
-│ Atomic claim on `{report_id}:{action_type}` in DB       │
-└──────────────────────┬─────────────────────────────────┘
-                       │ Claim Granted
-                       ▼
-┌────────────────────────────────────────────────────────┐
-│ 2. Gemini 3.5 Flash Drafter (Language Wording Only)    │
-│ Strict Pydantic DraftProposalResponse validation       │
-└──────────────────────┬─────────────────────────────────┘
-                       │ Structured Proposal
-                       ▼
-┌────────────────────────────────────────────────────────┐
-│ 3. 4-Point Deterministic Safety Validator              │
-│ - Recipient Verified (Authoritative Registry Check)   │
-│ - Report ID Verified (Matches Authoritative Record)    │
-│ - Amount Verified (Exact Decimal Match)                │
-│ - State Verified (Legal State Machine Transition)      │
-└──────────────────────┬─────────────────────────────────┘
-                       │
-                       ▼ PASS
-┌────────────────────────────────────────────────────────┐
-│ 4. Corporate Policy Engine                             │
-│ - Domain Whitelist / Anti-Spoofing Policy             │
-│ - High-Value Financial Escalation Policy (≥ $5,000)   │
-│ - Production Environment Safety Guards                 │
-└──────────────────────┬─────────────────────────────────┘
-                       │
-             ┌─────────┴─────────┐
-             ▼                   ▼
-           ALLOW               DENIED / BLOCKED
-```
+1. **Finance Agent (`finance-agent` v1.2.0):** Evaluates corporate refund claims, invoice anomalies, and stalled expense approvals. Formulates structured proposals (`issue_refund`, `approve_expense`, `escalate_stalled_approval`).
+2. **Support Agent (`support-agent` v1.1.0):** Evaluates customer SLA disputes and service outages. Formulates structured compensation proposals (`credit_account`, `escalate_ticket`, `sla_override`).
+3. **Sales Agent (`sales-agent` v1.0.0):** Evaluates enterprise contract terms and ARR margins. Formulates structured commercial discount proposals (`grant_discount`, `waive_fee`, `custom_contract_terms`).
 
-1. **Deterministic State Machine:** Restricts transitions strictly to legal paths (`Pending → Nudged → Escalated`, terminal `Resolved`). Direct jumps or reverts are blocked.
-2. **Transactional Outbox Claim:** Actions are atomically claimed before invoking Gemini, preventing duplicate runs and wasted LLM tokens during concurrent ticks.
-3. **Scenario 13 Race-Condition Guard:** If an approver resolves a report while a notification is in transit, the commit guard verifies `current_state == action.source_state`. If the report was resolved, the transition is recorded as **`SKIPPED`** and the `Resolved` state is preserved.
-4. **Deterministic Notification Worker:** The notification dispatch engine models the complete delivery lifecycle, logging unique message IDs, tracking receipt timestamps, and testing provider-side deduplication without sending unsolicited emails from test environments.
-5. **OpenTelemetry-Compatible Execution Tracing:** End-to-end spans (`approval.tick`, `observe`, `eligibility`, `claim`, `gemini.draft`, `validation`, `policy.check`, `notification`, `state_transition`) are recorded for observability without logging sensitive credentials.
-6. **Agent Bill of Materials (AgBOM):** Declared runtime dependency and safety inventory of models, frameworks, datastores, tools, and safety layers exposed at `/api/agbom`.
-7. **Agent Skill:** Reusable procedural knowledge defined in [`skills/approval_escalation/SKILL.md`](file:///d:/hackathon/skills/approval_escalation/SKILL.md) loaded dynamically at runtime via `SkillRegistry` using progressive disclosure.
+**Zero Direct Tool Access:** Fleet agents have **zero** direct network access to databases or payment APIs. Every proposed action is emitted as a strictly typed Pydantic `AgentActionProposal` and submitted to the Gateway.
 
 ---
 
-##  Google Cloud Proof & Technologies
+## 🗄️ 5. Real Agent Registry
 
-- **Gemini 3.5 Flash (`gemini-3.5-flash`):** Default model for contextual language generation.
-- **Google Agent Framework (Google GenAI SDK `google-genai`):** Official Python SDK for invoking Gemini models.
-- **Google Cloud Run:** Serverless container hosting the FastAPI backend and React Single-Page Application.
-- **Google Cloud Firestore:** Scalable NoSQL database with transactional outbox and state storage.
-- **Google Cloud Scheduler:** Managed serverless cron service triggering autonomous execution cycles (`*/1 * * * *`).
+Persistent in **Google Cloud Firestore**, the Agent Registry defines the identity, capabilities, and boundaries of every fleet member:
+
+```json
+{
+  "agent_id": "finance-agent",
+  "name": "Institutional Finance Agent",
+  "description": "Autonomous financial operations agent proposing refunds and expense adjustments.",
+  "owner": "finance-ops@company.internal",
+  "version": "1.2.0",
+  "status": "active",
+  "capabilities": ["financial_reasoning", "expense_analysis", "refund_assessment"],
+  "allowed_tools": ["payment_gateway", "erp_ledger", "notification_worker"],
+  "allowed_actions": ["issue_refund", "approve_expense", "escalate_stalled_approval"],
+  "policy_profile": "finance-v3",
+  "risk_level": "high"
+}
+```
+
+The Registry exposes secure administrative endpoints at `/api/registry/agents` to register, inspect, update, and enable/disable institutional agents.
 
 ---
 
-##  Local Setup & Quickstart
+## 🔐 6. Agent Identity & Zero-Trust Access Control
 
-### 1. Prerequisites
+Requests to the Gateway require authenticated cryptographic identity rather than trusting arbitrary headers:
+- **HMAC-SHA256 Token Provider:** Cryptographically signs and verifies agent requests with timestamp-based replay attack mitigation.
+- **Google Cloud IAM OIDC Verification:** Verifies Google Cloud Service Account identity tokens in production.
+- **Verification Invariants:**
+  1. Cryptographic token signature is valid and unexpired.
+  2. Agent exists in Registry and status is `ACTIVE`.
+  3. Running agent version matches registered specification.
+  4. Requested action is explicitly in the agent's `allowed_actions` whitelist.
+
+---
+
+## ⛩️ 7. ApprovalLoop Agent Gateway
+
+The Gateway is the unified execution gatekeeper:
+```python
+decision = gateway.authorize_action(proposal, auth_context)
+```
+
+The Gateway returns structured decisions:
+- **`ALLOW`**: Low-risk action within autonomous policy limits $\rightarrow$ automatically queued and executed.
+- **`REQUIRE_HUMAN_APPROVAL`**: Consequential action exceeding autonomous threshold $\rightarrow$ workflow paused in Memory Bank, queued for human sign-off in Dashboard.
+- **`DENY`**: Violation of financial ceilings, domain whitelists, or security boundaries $\rightarrow$ deterministically blocked, audited, and terminated.
+
+---
+
+## 📜 8. Deterministic Policy Engine with Versioned Profiles
+
+Policy decisions are 100% deterministic, immutable, and reproducible from structured input:
+
+### Profile: `finance-v3`
+- **$<\text{INR } 5,000$ ($<\$50$):** `ALLOW` (Automatic execution)
+- **$\text{INR } 5,000–\text{INR } 25,000$ ($\$50–\$250$):** `REQUIRE_HUMAN_APPROVAL` (Mandatory human sign-off)
+- **$>\text{INR } 25,000$ ($>\$250$):** `DENY` (Deterministic rejection)
+
+### Profile: `support-v1`
+- **$<\text{INR } 2,000$ ($<\$20$):** `ALLOW`
+- **$\text{INR } 2,000–\text{INR } 10,000$ ($\$20–\$100$):** `REQUIRE_HUMAN_APPROVAL`
+- **$>\text{INR } 10,000$ ($>\$100$):** `DENY`
+
+### Profile: `sales-v1`
+- **$\le 10\%$ Discount:** `ALLOW`
+- **$11\%–30\%$ Discount:** `REQUIRE_HUMAN_APPROVAL` (VP Sales review)
+- **$> 30\%$ Discount:** `DENY`
+
+---
+
+## 🧠 9. Persistent Memory Bank
+
+Stored in **Google Cloud Firestore**, the Memory Bank preserves cross-session context for asynchronous workflows:
+- `workflow_id`, `agent_id`, `session_id`, `state` (`INITIALIZED`, `RUNNING`, `PAUSED_FOR_APPROVAL`, `APPROVED`, `REJECTED`, `COMPLETED`, `FAILED`)
+- `action_history`, `previous_decisions`, `tool_results`, `approval_record`
+- Enables agents to pause mid-workflow and resume seamlessly when an operator signs off hours or days later.
+
+---
+
+## ⏳ 10. Long-Running Asynchronous Runtime & Crash Recovery
+
+Built for distributed resilience against container restarts, network partitions, and duplicate deliveries:
+- **Transactional Outbox & Idempotency Keys:** Unique keys (`gw:{workflow_id}:{action}:{target_id}`) prevent duplicate execution.
+- **Processing Leases:** Tasks are leased for 60 seconds with atomic state claims.
+- **Lease Expiration Recovery:** `recover_expired_leases()` automatically recovers tasks abandoned by crashed workers.
+- **Exponential Retry Backoff:** Failed network dispatches back off exponentially (`10s * 2^(attempt-1)`).
+- **Scenario 13 Race Guard:** Enforces `current_state == action.source_state` upon commit.
+
+---
+
+## 🛡️ 11. Model Safety Guardrail (Model Armor Concept)
+
+Demarcation of defense layers:
+1. **Layer 1: Model Safety / Prompt Defense:** Intercepts prompt injections, jailbreak patterns, and credential leaks before/after inference.
+2. **Layer 2: Deterministic Action Validator:** 4-point verification (recipient, report ID, Decimal amounts, state machine legality).
+3. **Layer 3: Corporate Policy Engine:** Domain restrictions and financial limits.
+4. **Layer 4: Execution Governance:** ApprovalLoop Gateway.
+
+---
+
+## 📊 12. Observability & OpenTelemetry
+
+ApprovalLoop instruments every lifecycle phase with OpenTelemetry-compliant spans:
+- `gateway.authorize`, `identity.verify`, `model_safety.inspect`, `policy.evaluate`, `claim`, `gemini.draft`, `notification`, `state_transition`
+- Sanitized attributes prevent secret or credential leaks into audit logs.
+- Full trace inspection available live at `/api/traces` and runtime AgBOM at `/api/agbom`.
+
+---
+
+## 🎬 13. Critical Demo Scenarios (Key Hackathon Scenarios)
+
+Demonstrate live in the dashboard (**http://127.0.0.1:8080**) or via terminal (`python evals/run_fleet_demo.py`):
+
+| Scenario | Agent Request | Gateway Decision | Execution Flow |
+| :--- | :--- | :--- | :--- |
+| **Case A** | Finance Agent requests **Refund INR 2,000** ($20) | **`ALLOW`** | Identity Verified $\rightarrow$ Policy `< INR 5,000` $\rightarrow$ Automatic instant dispatch. |
+| **Case B** | Finance Agent requests **Refund INR 20,000** ($200) | **`REQUIRE_HUMAN_APPROVAL`** | Identity Verified $\rightarrow$ Policy `INR 5,000–INR 25,000` $\rightarrow$ Workflow pauses in Memory Bank $\rightarrow$ Operator approves in Dashboard $\rightarrow$ Execution resumes. |
+| **Case C** | Finance Agent requests **Refund INR 100,000** ($1,000) | **`DENY`** | Identity Verified $\rightarrow$ Policy `> INR 25,000` ceiling $\rightarrow$ Action blocked deterministically. **Gemini cannot override policy.** |
+
+---
+
+## 💻 14. Local Setup & Quickstart
+
+### Prerequisites
 - Python 3.10+
 - Node.js 18+
 
-### 2. Installation
+### Quickstart Commands
 ```powershell
-# 1. Activate virtual environment
+# 1. Activate environment
 .\.venv\Scripts\Activate.ps1
 
-# 2. Set Gemini API key (optional for offline fallback, recommended for live LLM)
+# 2. (Optional) Set Gemini API Key
 $env:GEMINI_API_KEY="your-gemini-api-key"
 $env:GEMINI_MODEL="gemini-3.5-flash"
 
-# 3. Start the application (FastAPI + React Dashboard on port 8080)
+# 3. Start Backend & Dashboard (Port 8080)
 python -m uvicorn approval_loop.api.app:app --host 127.0.0.1 --port 8080 --reload
 ```
 
@@ -183,24 +260,40 @@ Open **http://127.0.0.1:8080** in your browser.
 
 ---
 
-##  Environment Variables
+## 🧪 15. Automated Test Suite (74 Tests Passing)
 
-| Variable | Default | Description |
-| :--- | :--- | :--- |
-| `APP_ENV` | `demo` | Environment mode (`test`, `demo`, `production`) |
-| `GEMINI_API_KEY` | *None* | Google Gemini API Key (injected via environment or Secret Manager) |
-| `GEMINI_MODEL` | `gemini-3.5-flash` | Gemini model version (`gemini-3.5-flash`) |
-| `GOOGLE_CLOUD_PROJECT` | `approval-loop-hackathon` | Google Cloud Project ID |
-| `USE_FIRESTORE` | `false` | Set `true` to use Google Cloud Firestore; `false` for in-memory |
-| `SCHEDULER_API_KEY` | `dev-scheduler-secret-key` | Secret key for authenticating Cloud Scheduler calls |
-| `ADMIN_FALLBACK_EMAIL` | `escalations-owner@company.internal` | Fallback escalation address when no backup approver exists |
+Run the full automated test suite:
+
+```bash
+pytest -v
+```
+
+```text
+======================= 74 passed in 1.23s =======================
+```
+
+Test coverage includes:
+- **Agent Registry:** Registration, retrieval, status toggling, capability checking
+- **Agent Identity:** HMAC cryptographic signatures, OIDC verification, tampered token rejection, version checks
+- **Agent Gateway:** ALLOW, REQUIRE_HUMAN_APPROVAL, DENY, human approval and rejection lifecycles
+- **Memory Bank:** State persistence, session history, async pause and resumption
+- **Async Runtime:** Leased task execution, idempotency deduplication, crash recovery
+- **Model Safety Guardrails:** Prompt injection detection, credential leakage prevention
+- **Deterministic State Machine & 4-Point Validator:** All legal transitions, amount precision, race guards
+- **Production Health & Endpoints:** `/health/live`, `/health/ready`, `/healthz`, `/api/registry/...`
+- **Critical Demo Scenarios:** Case A, Case B, and Case C end-to-end integration tests
 
 ---
 
-##  Google Cloud Deployment
+## ☁️ 16. Google Cloud Infrastructure & Deployment
 
-Deploy with one command using the provided script:
+- **Gemini 3.5 Flash (`gemini-3.5-flash`):** Google GenAI SDK agent reasoning
+- **Google Cloud Run:** Container hosting FastAPI backend and React Single-Page Application
+- **Google Cloud Firestore:** Scalable ACID NoSQL datastore for Agent Registry, Memory Bank, and Outbox
+- **Google Cloud Scheduler:** Managed serverless cron trigger (`*/1 * * * *`)
+- **Google Secret Manager:** Secure injection of `GEMINI_API_KEY` and `AGENT_IDENTITY_SECRET`
 
+Deploy to GCP with one command:
 ```bash
 export GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
 export GEMINI_API_KEY="your-gemini-api-key"
@@ -212,37 +305,39 @@ chmod +x deploy.sh
 
 ---
 
-##  Automated Testing (47 Tests Passing)
+## ⚙️ 17. Environment Variables
 
-Run the full automated test suite:
-
-```bash
-pytest -v
-```
-
-```text
-============================= 47 passed in 2.80s ==============================
-```
-
-Test coverage includes:
-- **Deterministic State Machine:** All legal transitions and illegal jump rejection
-- **4-Point Safety Validator:** Recipient, Report ID, Decimal amount, and State validation
-- **Corporate Policy Engine:** Domain restrictions, high-value director threshold ($\ge \$5,000$), state invariants, and environment guards
-- **Transactional Outbox Claim:** Atomic idempotency and race deduplication
-- **Notification Provider Hierarchy:** Mock simulator with latency/fault injection and Production adapter
-- **Gemini Structured Output:** Tone and reasoning validation, markdown fence stripping, and resilient offline templates
-- **OpenTelemetry Tracer:** Span lifecycle and credential sanitization
-- **1,000-Report Scale Simulation:** 1,000 concurrent synthetic approval lifecycles evaluated in <0.1s with 0 duplicate sends and 0 unsafe transitions
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `APP_ENV` | `demo` | Environment mode (`test`, `demo`, `production`) |
+| `GEMINI_API_KEY` | *None* | Google Gemini API Key |
+| `GEMINI_MODEL` | `gemini-3.5-flash` | Gemini model version |
+| `GOOGLE_CLOUD_PROJECT` | `approval-loop-hackathon` | Google Cloud Project ID |
+| `USE_FIRESTORE` | `false` | Set `true` to use Firestore; `false` for in-memory |
+| `SCHEDULER_API_KEY` | `dev-scheduler-secret-key` | Secret key for Cloud Scheduler trigger |
+| `AGENT_IDENTITY_SECRET` | `fleet-identity-master-secret-key-2026` | Master key for HMAC agent tokens |
+| `APP_ALLOWED_ORIGINS` | `http://localhost:5173,...` | Configured CORS origins (wildcards blocked in prod) |
 
 ---
 
+## 🛡️ 18. Limitations & Honest Disclosure
 
-##  Limitations & Honest Disclosure
-
-- **Notification Provider:** For hackathon demonstration and testing safety, the system defaults to `MockNotificationProvider`, simulating provider idempotency, receipt tracking, and network fault injection without sending unsolicited emails to real mailboxes. The architecture uses a clean `BaseNotificationProvider` abstraction so that an enterprise provider (e.g. SendGrid, Google Cloud Tasks, or Corporate SMTP) can be substituted in production without altering agent orchestration logic.
-- **Transactional Firestore:** In local test suites, `InMemoryRepository` provides thread-safe dictionary storage with lock synchronization; in cloud deployment, `FirestoreRepository` provides ACID document transactions.
+1. **Notification Provider:** Defaults to `MockNotificationProvider` for safe local testing and demonstration without sending unsolicited emails. Production uses `ProductionNotificationProvider` with timeouts and retry classification.
+2. **Local vs Cloud Storage:** Uses thread-safe locked dictionary memory repos in local demo mode; seamlessly connects to `FirestoreRepository` when `USE_FIRESTORE=true`.
 
 ---
 
+## 🗺️ 19. Production Hardening Roadmap
 
-
+- [x] Institutional Agent Fleet with Gemini 3.5 & Google GenAI SDK
+- [x] Firestore-backed Agent Registry with capability whitelisting
+- [x] Zero-trust cryptographic Agent Identity (HMAC & GCP OIDC)
+- [x] ApprovalLoop Agent Gateway with versioned policy profiles
+- [x] Human-in-the-Loop approval queue with workflow pause/resume
+- [x] Persistent cross-session Memory Bank
+- [x] Leased asynchronous task execution with crash recovery
+- [x] Model Armor prompt defense guardrails
+- [x] OpenTelemetry distributed tracing and AgBOM manifest
+- [x] Production health endpoints (`/health/live`, `/health/ready`)
+- [ ] Google Cloud Pub/Sub & Cloud Tasks managed distributed queue integration
+- [ ] Google Cloud KMS key destruction hooks for enterprise key rotation

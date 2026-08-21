@@ -1,13 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { ExpenseReport, ActionRecord, AutonomyMetrics } from '../types/approval';
+import {
+  ExpenseReport, ActionRecord, AutonomyMetrics, AgentRegistration,
+  PendingAction, WorkflowMemoryRecord
+} from '../types/approval';
 import { AutonomyProof } from '../components/AutonomyProof';
 import { SafetyProof } from '../components/SafetyProof';
 import { ReportTable } from '../components/ReportTable';
 import { ActionLedger } from '../components/ActionLedger';
 import { StateMachine } from '../components/StateMachine';
 import { ScenarioRunner } from '../components/ScenarioRunner';
-import { Layers } from 'lucide-react';
+import { AgentFleetPanel } from '../components/AgentFleetPanel';
+import { HumanApprovalQueue } from '../components/HumanApprovalQueue';
+import { CriticalDemoRunner } from '../components/CriticalDemoRunner';
+import { MemoryBankViewer } from '../components/MemoryBankViewer';
+import { ShieldCheck, Layers } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const [reports, setReports] = useState<ExpenseReport[]>([]);
@@ -24,21 +31,29 @@ export const Dashboard: React.FC = () => {
     unsafe_transitions_prevented: 0,
     human_prompts_required: 0
   });
+  const [agents, setAgents] = useState<AgentRegistration[]>([]);
+  const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
+  const [workflows, setWorkflows] = useState<WorkflowMemoryRecord[]>([]);
   const [isLiveMode, setIsLiveMode] = useState<boolean>(true);
 
-  // Read-only dashboard polling (purely observational, zero tick side-effects)
   const fetchData = async () => {
     try {
-      const [r, a, m] = await Promise.all([
+      const [r, a, m, ag, pa, wf] = await Promise.all([
         api.getReports(),
         api.getActions(),
-        api.getMetrics()
+        api.getMetrics(),
+        api.getAgents().catch(() => []),
+        api.getPendingActions().catch(() => []),
+        api.getWorkflows().catch(() => [])
       ]);
       setReports(r);
       setActions(a);
       setMetrics(m);
+      setAgents(ag);
+      setPendingActions(pa);
+      setWorkflows(wf);
     } catch (e) {
-      console.error('Failed to fetch data', e);
+      console.error('Failed to fetch dashboard data', e);
     }
   };
 
@@ -48,7 +63,18 @@ export const Dashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Manual Demo / Verification Handlers
+  // Handlers for Human Approval Queue
+  const handleApprove = async (actionId: string, operator: string, notes: string) => {
+    await api.approveAction(actionId, operator, notes);
+    await fetchData();
+  };
+
+  const handleReject = async (actionId: string, operator: string, notes: string) => {
+    await api.rejectAction(actionId, operator, notes);
+    await fetchData();
+  };
+
+  // Handlers for Autonomous Tick and Scenarios
   const handleTick = async () => {
     await api.triggerTick();
     await fetchData();
@@ -99,32 +125,57 @@ export const Dashboard: React.FC = () => {
               <Layers className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-white">ApprovalLoop</h1>
-              <p className="text-xs text-indigo-300 font-semibold">
-                Bounded Autonomous Agent for Stalled Human Workflows — Powered by Google Gemini &amp; Cloud Run
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-black tracking-tight text-white">ApprovalLoop</h1>
+                <span className="px-2 py-0.5 rounded bg-indigo-950 border border-indigo-700 text-indigo-300 text-[11px] font-mono font-bold uppercase">
+                  Fortified Enterprise Fleet
+                </span>
+              </div>
+              <p className="text-xs text-indigo-300 font-semibold mt-0.5">
+                Deterministic Execution Governance Gateway for Autonomous Agent Fleets — Powered by Google Gemini &amp; Cloud Run
               </p>
             </div>
           </div>
-          <p className="text-xs text-slate-400 mt-2 italic">
-            "The LLM writes the message. Code controls the consequences."
+          <p className="text-xs text-slate-400 mt-2 font-mono font-semibold text-emerald-400">
+            "AI proposes. Deterministic policy decides. Infrastructure executes."
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-center gap-2.5 font-mono shadow-md">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            Autonomous Trigger: <span className="text-emerald-400 font-bold">Cloud Scheduler (Active)</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-center gap-2 font-mono shadow-md">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            Cloud Scheduler: <span className="text-emerald-400 font-bold">Active</span>
+          </div>
+          <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-center gap-2 font-mono shadow-md">
+            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+            Gateway: <span className="text-indigo-400 font-bold">Enforced</span>
           </div>
         </div>
       </div>
 
-      {/* AUTONOMY PROOF SECTION */}
+      {/* 1. AGENT FLEET PANEL */}
+      <AgentFleetPanel agents={agents} />
+
+      {/* 2. CRITICAL DEMO SCENARIOS (Case A, B, C) */}
+      <CriticalDemoRunner onWorkflowTriggered={fetchData} />
+
+      {/* 3. HUMAN-IN-THE-LOOP APPROVAL QUEUE */}
+      <HumanApprovalQueue
+        pendingActions={pendingActions}
+        onApprove={handleApprove}
+        onReject={handleReject}
+      />
+
+      {/* 4. AUTONOMY METRICS PROOF */}
       <AutonomyProof metrics={metrics} isLiveMode={isLiveMode} />
 
-      {/* SAFETY PROOF & CONTROL PLANE */}
+      {/* 5. MEMORY BANK VIEWER */}
+      <MemoryBankViewer workflows={workflows} />
+
+      {/* 6. SAFETY PROOF & CONTROL PLANE */}
       <SafetyProof />
 
-      {/* Controls & Scenario Simulation */}
+      {/* 7. CONTROLS & TESTBEDS */}
       <ScenarioRunner
         onTick={handleTick}
         onSeed={handleSeed}
@@ -137,10 +188,9 @@ export const Dashboard: React.FC = () => {
         onToggleLiveMode={() => setIsLiveMode(!isLiveMode)}
       />
 
-      {/* State Machine Diagram */}
+      {/* 8. STATE MACHINE & EXPENSE REPORTS */}
       <StateMachine />
 
-      {/* Reports Table & Action Ledger */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-5">
           <ReportTable reports={reports} onResolve={handleResolve} />
@@ -152,4 +202,3 @@ export const Dashboard: React.FC = () => {
     </div>
   );
 };
-

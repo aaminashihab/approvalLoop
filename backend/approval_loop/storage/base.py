@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional, Any
 from approval_loop.domain.models import ExpenseReport, ActionRecord
 
 class BaseRepository(ABC):
@@ -54,3 +55,23 @@ class BaseRepository(ABC):
         Otherwise records state_transition = skipped and preserves current report state.
         """
         pass
+
+    # Agent Registry Extensions
+    def save_agent_registration(self, agent: Any):
+        pass
+
+    def get_agent_registration(self, agent_id: str) -> Any | None:
+        return None
+
+    def list_agent_registrations(self) -> list[Any]:
+        return []
+
+    # Memory Bank Extensions
+    def save_workflow_memory(self, record: Any):
+        pass
+
+    def get_workflow_memory(self, workflow_id: str) -> Any | None:
+        return None
+
+    def list_workflow_memories(self, agent_id: Optional[str] = None, state: Optional[str] = None) -> list[Any]:
+        return []

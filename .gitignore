@@ -1,10 +1,7 @@
-# Ignore markdown files except README, DEVPOST, and Skills
+# Ignore all markdown files except README.md
+**/*.md
 *.md
 !README.md
-!README*.md
-!DEVPOST.md
-!skills/**/*.md
-!docs/**/*.md
 
 # Archives & Temp Files
 *.zip
