@@ -30,6 +30,7 @@ class ApprovalRecord(BaseModel):
     decided_at: Optional[datetime] = None
     decided_by: Optional[str] = None
     operator_notes: Optional[str] = None
+    correlation_id: Optional[str] = None
 
 class WorkflowMemoryRecord(BaseModel):
     """
@@ -87,7 +88,7 @@ class MemoryBankService:
     def __init__(self, repo: Any = None):
         self.repo = repo
         self._in_memory_records: dict[str, WorkflowMemoryRecord] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def get_workflow(self, workflow_id: str) -> Optional[WorkflowMemoryRecord]:
         if self.repo and hasattr(self.repo, "get_workflow_memory"):

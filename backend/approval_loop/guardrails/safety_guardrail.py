@@ -27,28 +27,45 @@ class ModelSafetyGuardrail:
     In all cases: Model output CANNOT directly authorize execution.
     """
     INJECTION_PATTERNS = [
-        r"ignore\s+(all\s+)?(previous|prior)\s+instructions",
+        r"ignore\s+(all\s+)?(previous|prior|system)\s+instructions",
         r"system\s*override",
-        r"bypass\s+(safety|security|policy|validator)",
-        r"you\s+are\s+now\s+in\s+dan\s+mode",
-        r"forget\s+all\s+rules",
+        r"bypass\s+(safety|security|policy|validator|auth|guardrail)",
+        r"you\s+are\s+now\s+in\s+(dan|developer|root|unrestricted)\s+mode",
+        r"forget\s+all\s+(rules|constraints|directives)",
+        r"disregard\s+(above|previous|system)\s+(prompt|rules)",
+        r"act\s+as\s+an?\s+unrestricted",
         r"<script.*?>",
         r"javascript:",
+        r"onload\s*=",
+        r"onerror\s*=",
         r"eval\(",
-        r"drop\s+table",
+        r"exec\(",
+        r"system\(",
+        r"subprocess\.",
+        r"drop\s+(table|database|schema)",
         r"union\s+select",
         r"base64_decode",
+        r"rm\s+-rf",
+        r"curl\s+.*\|\s*sh",
+        r"wget\s+.*\|\s*bash",
+        r"cat\s+/etc/passwd",
+        r"cat\s+/etc/shadow",
     ]
 
     SECRET_LEAKAGE_PATTERNS = [
         r"AIza[0-9A-Za-z-_]{35}",           # Google API key pattern
         r"ghp_[0-9a-zA-Z]{36}",            # GitHub personal token
+        r"gho_[0-9a-zA-Z]{36}",            # GitHub OAuth token
         r"xox[baprs]-[0-9a-zA-Z-]{10,48}", # Slack token
+        r"AKIA[0-9A-Z]{16}",               # AWS Access Key ID
+        r"-----BEGIN [A-Z\s]*KEY-----",    # Private Keys
+        r"sk-proj-[0-9a-zA-Z-_]{20,}",     # OpenAI API Key pattern
+        r"sk-ant-api[0-9a-zA-Z-_]{20,}",   # Anthropic API key
     ]
 
     def __init__(self):
         self._compiled_injections = [re.compile(p, re.IGNORECASE) for p in self.INJECTION_PATTERNS]
-        self._compiled_secrets = [re.compile(p) for p in self.SECRET_LEAKAGE_PATTERNS]
+        self._compiled_secrets = [re.compile(p, re.IGNORECASE) for p in self.SECRET_LEAKAGE_PATTERNS]
 
     def inspect_prompt(self, prompt_text: str) -> ModelSafetyResult:
         """Inspects incoming user/system prompts for adversarial injection attempts."""

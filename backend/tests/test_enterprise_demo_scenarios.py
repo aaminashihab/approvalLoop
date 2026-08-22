@@ -30,8 +30,9 @@ def test_critical_demo_scenario_b_human_approval_flow():
     assert data["decision"]["requires_human_approval"] is True
     action_id = data["decision"]["action_record_id"]
     
+    headers = {"X-API-Key": "dev-scheduler-secret-key"}
     # Check pending actions endpoint
-    pending_res = client.get("/api/gateway/actions/pending")
+    pending_res = client.get("/api/gateway/actions/pending", headers=headers)
     assert pending_res.status_code == 200
     pending_items = pending_res.json()
     assert any(item["action_id"] == action_id for item in pending_items)
@@ -39,7 +40,8 @@ def test_critical_demo_scenario_b_human_approval_flow():
     # Human Operator Approves via API
     approve_res = client.post(
         f"/api/gateway/actions/{action_id}/approve",
-        json={"operator": "Chief Risk Officer", "notes": "Approved for enterprise partner"}
+        json={"operator": "Chief Risk Officer", "notes": "Approved for enterprise partner"},
+        headers=headers
     )
     assert approve_res.status_code == 200
     app_data = approve_res.json()

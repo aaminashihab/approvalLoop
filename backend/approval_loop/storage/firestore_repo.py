@@ -14,13 +14,15 @@ class FirestoreRepository(BaseRepository):
         reports_col: str = "expense_reports",
         actions_col: str = "approval_actions",
         agents_col: str = "agent_registry",
-        memory_col: str = "workflow_memories"
+        memory_col: str = "workflow_memories",
+        tasks_col: str = "async_tasks"
     ):
         self.client = firestore.Client(project=project_id)
         self.reports_col = reports_col
         self.actions_col = actions_col
         self.agents_col = agents_col
         self.memory_col = memory_col
+        self.tasks_col = tasks_col
 
     def get_report(self, report_id: str) -> ExpenseReport | None:
         doc = self.client.collection(self.reports_col).document(report_id).get()
@@ -178,12 +180,34 @@ class FirestoreRepository(BaseRepository):
             return WorkflowMemoryRecord(**doc.to_dict())
         return None
 
-    def list_workflow_memories(self, agent_id: Optional[str] = None, state: Optional[str] = None) -> list[Any]:
-        query = self.client.collection(self.memory_col)
-        if agent_id:
-            query = query.where("agent_id", "==", agent_id)
-        if state:
-            query = query.where("state", "==", state)
-        docs = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(50).stream()
-        from approval_loop.memory.memory_bank import WorkflowMemoryRecord
-        return [WorkflowMemoryRecord(**d.to_dict()) for d in docs]
+    # Async Task Firestore Operations
+    def save_async_task(self, task: Any):
+        data = task.to_dict() if hasattr(task, "to_dict") else (task.model_dump() if hasattr(task, "model_dump") else task)
+        task_id = data.get("task_id")
+        self.client.collection(self.tasks_col).document(task_id).set(data)
+        if data.get("idempotency_key"):
+            self.client.collection("async_task_index").document(data["idempotency_key"]).set({"task_id": task_id})
+
+    def get_async_task(self, task_id: str) -> Any | None:
+        doc = self.client.collection(self.tasks_col).document(task_id).get()
+        if doc.exists:
+            from approval_loop.runtime.async_runtime import AsyncTaskRecord
+            return AsyncTaskRecord(**doc.to_dict())
+        return None
+
+    def get_async_task_by_idempotency_key(self, idempotency_key: str) -> Any | None:
+        idx_doc = self.client.collection("async_task_index").document(idempotency_key).get()
+        if idx_doc.exists:
+            task_id = idx_doc.to_dict().get("task_id")
+            if task_id:
+                return self.get_async_task(task_id)
+        return None
+
+    def list_async_tasks(self, status: Optional[str] = None) -> list[Any]:
+        query = self.client.collection(self.tasks_col)
+        if status:
+            query = query.where("status", "==", status)
+        docs = query.order_by("created_at", direction=firestore.Query.DESCENDING).limit(100).stream()
+        from approval_loop.runtime.async_runtime import AsyncTaskRecord
+        return [AsyncTaskRecord(**d.to_dict()) for d in docs]
+

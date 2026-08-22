@@ -33,6 +33,7 @@ class AgentIdentityProvider:
         self.registry = registry_service
         self.secret_key = secret_key
         self.token_max_age_seconds = token_max_age_seconds
+        self._seen_request_ids: set[str] = set()
 
     def generate_agent_token(self, agent_id: str, agent_version: str) -> str:
         """
@@ -70,6 +71,11 @@ class AgentIdentityProvider:
 
         if proposal.agent_version != auth_context.agent_version:
             return False, f"Version Mismatch: Proposal version '{proposal.agent_version}' does not match auth token version '{auth_context.agent_version}'.", {}
+
+        # 2b. Replay Attack Prevention
+        if auth_context.request_id in self._seen_request_ids:
+            return False, f"Replay Attack Prevented: Request ID '{auth_context.request_id}' has already been processed.", {}
+        self._seen_request_ids.add(auth_context.request_id)
 
         # 3. Retrieve agent from Registry
         agent = self.registry.get_agent(auth_context.agent_id)

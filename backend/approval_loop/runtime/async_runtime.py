@@ -75,13 +75,58 @@ class AsyncAgentRuntime:
         self,
         gateway: AgentGateway,
         memory_bank: MemoryBankService,
-        lease_duration_seconds: int = 60
+        lease_duration_seconds: int = 60,
+        repo: Any = None
     ):
         self.gateway = gateway
         self.memory_bank = memory_bank
         self.lease_duration_seconds = lease_duration_seconds
+        self.repo = repo or getattr(memory_bank, "repo", None)
         self._tasks: dict[str, AsyncTaskRecord] = {}
         self._idempotency_index: dict[str, str] = {}  # idempotency_key -> task_id
+
+    def _save_task(self, task: AsyncTaskRecord):
+        self._tasks[task.task_id] = task
+        self._idempotency_index[task.idempotency_key] = task.task_id
+        if self.repo and hasattr(self.repo, "save_async_task"):
+            self.repo.save_async_task(task)
+
+    def _get_task(self, task_id: str) -> Optional[AsyncTaskRecord]:
+        if self.repo and hasattr(self.repo, "get_async_task"):
+            stored = self.repo.get_async_task(task_id)
+            if stored:
+                if isinstance(stored, dict):
+                    stored = AsyncTaskRecord(**stored)
+                self._tasks[task_id] = stored
+                return stored
+        return self._tasks.get(task_id)
+
+    def _get_task_by_idempotency_key(self, idempotency_key: str) -> Optional[AsyncTaskRecord]:
+        if self.repo and hasattr(self.repo, "get_async_task_by_idempotency_key"):
+            stored = self.repo.get_async_task_by_idempotency_key(idempotency_key)
+            if stored:
+                if isinstance(stored, dict):
+                    stored = AsyncTaskRecord(**stored)
+                self._tasks[stored.task_id] = stored
+                self._idempotency_index[idempotency_key] = stored.task_id
+                return stored
+        task_id = self._idempotency_index.get(idempotency_key)
+        return self._tasks.get(task_id) if task_id else None
+
+    def _list_tasks(self, status: Optional[str] = None) -> list[AsyncTaskRecord]:
+        if self.repo and hasattr(self.repo, "list_async_tasks"):
+            raw_tasks = self.repo.list_async_tasks(status=status)
+            res = []
+            for t in raw_tasks:
+                rec = t if isinstance(t, AsyncTaskRecord) else AsyncTaskRecord(**t)
+                self._tasks[rec.task_id] = rec
+                self._idempotency_index[rec.idempotency_key] = rec.task_id
+                res.append(rec)
+            return res
+        tasks = list(self._tasks.values())
+        if status:
+            tasks = [t for t in tasks if t.status == status]
+        return tasks
 
     def submit_workflow(
         self,
@@ -89,16 +134,14 @@ class AsyncAgentRuntime:
         auth_context: AgentAuthContext
     ) -> tuple[AsyncTaskRecord, GatewayDecision]:
         """
-        Ingresses an agent workflow into the asynchronous runtime queue with idempotency.
+        Ingresses an agent workflow into the asynchronous runtime queue with durable idempotency.
         """
         idempotency_key = f"async:{proposal.agent_id}:{proposal.action_name}:{proposal.target_resource_id}"
         
         # Deduplication check
-        if idempotency_key in self._idempotency_index:
-            existing_task_id = self._idempotency_index[idempotency_key]
-            existing_task = self._tasks[existing_task_id]
-            logger.info("Async runtime deduplicated existing task %s for key %s", existing_task_id, idempotency_key)
-            # Reconstruct previous decision if available
+        existing_task = self._get_task_by_idempotency_key(idempotency_key)
+        if existing_task:
+            logger.info("Async runtime deduplicated existing task %s for key %s", existing_task.task_id, idempotency_key)
             decision = GatewayDecision(
                 proposal_id=proposal.proposal_id,
                 workflow_id=proposal.workflow_id,
@@ -126,8 +169,7 @@ class AsyncAgentRuntime:
             ),
             payload={"proposal": proposal.to_dict(), "decision": decision.to_dict()}
         )
-        self._tasks[task.task_id] = task
-        self._idempotency_index[idempotency_key] = task.task_id
+        self._save_task(task)
 
         return task, decision
 
@@ -136,7 +178,8 @@ class AsyncAgentRuntime:
         Atomically leases the next eligible queued or retry-pending task.
         """
         now = utc_now()
-        for task in self._tasks.values():
+        tasks = self._list_tasks()
+        for task in tasks:
             if task.status in (AsyncTaskState.QUEUED, AsyncTaskState.RETRY_PENDING):
                 if task.next_attempt_at and now < task.next_attempt_at:
                     continue
@@ -144,6 +187,7 @@ class AsyncAgentRuntime:
                 task.claimed_at = now
                 task.lease_expires_at = now + timedelta(seconds=self.lease_duration_seconds)
                 task.attempt_count += 1
+                self._save_task(task)
                 return task
         return None
 
@@ -153,8 +197,9 @@ class AsyncAgentRuntime:
         """
         now = utc_now()
         recovered = []
-        for task in self._tasks.values():
-            if task.status == AsyncTaskState.LEASED and task.lease_expires_at and now > task.lease_expires_at:
+        tasks = self._list_tasks(status=AsyncTaskState.LEASED)
+        for task in tasks:
+            if task.lease_expires_at and now > task.lease_expires_at:
                 logger.warning("Recovered expired lease on task %s (expired at %s)", task.task_id, task.lease_expires_at)
                 if task.attempt_count >= task.max_attempts:
                     task.status = AsyncTaskState.FAILED
@@ -162,20 +207,22 @@ class AsyncAgentRuntime:
                 else:
                     task.status = AsyncTaskState.RETRY_PENDING
                     task.next_attempt_at = now + timedelta(seconds=5)
+                self._save_task(task)
                 recovered.append(task)
         return recovered
 
     def complete_task(self, task_id: str, result: dict[str, Any]) -> Optional[AsyncTaskRecord]:
-        task = self._tasks.get(task_id)
+        task = self._get_task(task_id)
         if not task:
             return None
         task.status = AsyncTaskState.COMPLETED
         task.completed_at = utc_now()
         task.payload["execution_result"] = result
+        self._save_task(task)
         return task
 
     def fail_task(self, task_id: str, error_msg: str, backoff_seconds: int = 10) -> Optional[AsyncTaskRecord]:
-        task = self._tasks.get(task_id)
+        task = self._get_task(task_id)
         if not task:
             return None
         task.last_error = error_msg
@@ -184,10 +231,12 @@ class AsyncAgentRuntime:
         else:
             task.status = AsyncTaskState.RETRY_PENDING
             task.next_attempt_at = utc_now() + timedelta(seconds=backoff_seconds * (2 ** (task.attempt_count - 1)))
+        self._save_task(task)
         return task
 
     def get_task(self, task_id: str) -> Optional[AsyncTaskRecord]:
-        return self._tasks.get(task_id)
+        return self._get_task(task_id)
 
     def list_tasks(self) -> list[AsyncTaskRecord]:
-        return list(self._tasks.values())
+        return self._list_tasks()
+

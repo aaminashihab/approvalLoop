@@ -75,3 +75,17 @@ class BaseRepository(ABC):
 
     def list_workflow_memories(self, agent_id: Optional[str] = None, state: Optional[str] = None) -> list[Any]:
         return []
+
+    # Async Task Storage Extensions
+    def save_async_task(self, task: Any):
+        pass
+
+    def get_async_task(self, task_id: str) -> Any | None:
+        return None
+
+    def get_async_task_by_idempotency_key(self, idempotency_key: str) -> Any | None:
+        return None
+
+    def list_async_tasks(self, status: Optional[str] = None) -> list[Any]:
+        return []
+

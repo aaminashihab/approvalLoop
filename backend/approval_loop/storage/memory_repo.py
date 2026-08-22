@@ -14,6 +14,8 @@ class InMemoryRepository(BaseRepository):
         self.active_claims: dict[str, str] = {}  # idempotency_key -> action_id
         self.agents: dict[str, Any] = {}
         self.workflow_memories: dict[str, Any] = {}
+        self.async_tasks: dict[str, Any] = {}
+        self.async_idempotency_index: dict[str, str] = {}
         self._lock = threading.Lock()
 
     def get_report(self, report_id: str) -> ExpenseReport | None:
@@ -158,3 +160,31 @@ class InMemoryRepository(BaseRepository):
             if state:
                 records = [r for r in records if getattr(getattr(r, "state", None), "value", str(getattr(r, "state", None))) == state]
             return records
+
+    # Async Task Operations
+    def save_async_task(self, task: Any):
+        with self._lock:
+            task_id = getattr(task, "task_id", None) or task.get("task_id")
+            idempotency_key = getattr(task, "idempotency_key", None) or (task.get("idempotency_key") if isinstance(task, dict) else None)
+            self.async_tasks[task_id] = task
+            if idempotency_key:
+                self.async_idempotency_index[idempotency_key] = task_id
+
+    def get_async_task(self, task_id: str) -> Any | None:
+        with self._lock:
+            return self.async_tasks.get(task_id)
+
+    def get_async_task_by_idempotency_key(self, idempotency_key: str) -> Any | None:
+        with self._lock:
+            task_id = self.async_idempotency_index.get(idempotency_key)
+            if task_id:
+                return self.async_tasks.get(task_id)
+            return None
+
+    def list_async_tasks(self, status: Optional[str] = None) -> list[Any]:
+        with self._lock:
+            tasks = list(self.async_tasks.values())
+            if status:
+                tasks = [t for t in tasks if getattr(t, "status", None) == status or (isinstance(t, dict) and t.get("status") == status)]
+            return tasks
+
