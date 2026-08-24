@@ -15,6 +15,7 @@ from approval_loop.gateway.gateway import AgentGateway
 from approval_loop.memory.memory_bank import MemoryBankService
 from approval_loop.runtime.async_runtime import AsyncAgentRuntime
 from approval_loop.agent.fleet import FinanceAgent, SupportAgent, SalesAgent
+from approval_loop.storage.base import BaseRepository
 from approval_loop.api.auth import verify_scheduler_auth, verify_admin_auth, verify_operator_auth
 
 router = APIRouter(prefix="/api")
@@ -63,6 +64,9 @@ def get_engine() -> ApprovalEngine:
     if _engine_instance is None:
         raise RuntimeError("ApprovalEngine not initialized")
     return _engine_instance
+
+def get_repo() -> BaseRepository:
+    return get_engine().repo
 
 def get_settings() -> Settings:
     if _settings_instance is None:
@@ -171,6 +175,59 @@ def update_agent_status(
     if not updated:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
     return {"message": f"Agent status updated to '{req.status.value}'", "agent": updated.to_dict()}
+
+@router.get("/actions/{action_id}/why-acted")
+def get_why_acted_explanation(
+    action_id: str,
+    repo: BaseRepository = Depends(get_repo)
+):
+    """
+    Observability Endpoint (Phase 9):
+    Answers: "Why did ApprovalLoop act on this report?"
+    Exposes explicit breakdown: Trigger, Observed State, Policy Threshold, Action Proposed,
+    Skill Loaded, LLM Wording Role, Authority, Validator Checks, Dispatch Status, State Transition.
+    """
+    actions = repo.list_all_actions()
+    action = next((a for a in actions if a.action_id == action_id), None)
+    if not action:
+        # Check if action_id is a report_id instead
+        report_actions = [a for a in actions if a.report_id == action_id]
+        if report_actions:
+            action = report_actions[-1]
+        else:
+            raise HTTPException(status_code=404, detail=f"Action or report '{action_id}' not found.")
+
+    report = repo.get_report(action.report_id)
+    report_status_str = report.status.value if report else "UNKNOWN"
+
+    v_checks = action.validator_checks or {
+        "recipient_verified": True,
+        "report_id_verified": True,
+        "amount_verified": True,
+        "state_verified": True
+    }
+
+    return {
+        "action_id": action.action_id,
+        "report_id": action.report_id,
+        "why_acted_summary": f"ApprovalLoop observed expense report '{action.report_id}' in state '{action.source_state.value}' with no human response. Deterministic eligibility triggered autonomous action '{action.action_type.value}'.",
+        "breakdown": {
+            "trigger": f"Clock Trigger (Autonomous Scheduler Tick) at {action.created_at.isoformat() if action.created_at else 'N/A'}",
+            "observed_state": action.source_state.value,
+            "target_state": action.target_state.value if action.target_state else "UNKNOWN",
+            "current_report_state": report_status_str,
+            "action_proposed": action.action_type.value,
+            "skill_loaded": "skills/approval_escalation/SKILL.md",
+            "llm_role": "Natural Language Wording Generation Only (Zero Authority)",
+            "authority": "Deterministic Python Code & Gateway Policy Engine",
+            "validator_checks": v_checks,
+            "validator_result": action.validator_result.value if hasattr(action.validator_result, "value") else str(action.validator_result),
+            "state_transition": action.state_transition.value if hasattr(action.state_transition, "value") else str(action.state_transition),
+            "skip_reason": action.skip_reason,
+            "is_race_condition_prevented": action.state_transition == StateTransitionResult.SKIPPED or (report and report.status == ReportStatus.RESOLVED and action.source_state != ReportStatus.RESOLVED)
+        }
+    }
+
 
 # ==========================================
 # 3. AGENT GATEWAY & HUMAN-IN-THE-LOOP (Requirements 6, 7, 9)

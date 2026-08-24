@@ -55,8 +55,8 @@ ApprovalLoop acts as the **Fortified Execution Governance Gateway** for enterpri
 
 ## 🧪 Verification & Scale Benchmark
 
-- **98 Automated Pytest Tests Passing (100% Pass Rate)**
-- **1,000-Report Scale Simulation:** 1,000 concurrent synthetic approval lifecycles evaluated in <0.1s with 0 duplicate sends and 0 state corruptions.
+- **103 Automated Pytest Tests Passing (100% Pass Rate)**
+- **1,000-Report Scale Benchmark:** 1,000 concurrent synthetic approval lifecycles evaluated in 0.25s (local test environment) with 0 duplicate sends and 0 state corruptions.
 - **Critical Demo Scenarios:** Automated tests and interactive UI verifying Case A (Auto-ALLOW), Case B (Human Sign-Off), and Case C (Deterministic DENY).
 
 ---

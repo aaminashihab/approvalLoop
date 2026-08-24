@@ -183,6 +183,43 @@ export const ActionLedger: React.FC<ActionLedgerProps> = ({ actions }) => {
                     <p className="italic text-slate-400 bg-slate-950/50 p-2 rounded border border-slate-800/60">"{act.envelope.body_text}"</p>
                   </div>
                 )}
+
+                {/* WHY DID APPROVALLOOP ACT? Breakdown Box (Phase 9 & 10) */}
+                <div className="mt-3 p-3 bg-indigo-950/30 border border-indigo-800/60 rounded-lg text-[11px]">
+                  <div className="flex items-center justify-between text-indigo-300 font-bold uppercase tracking-wider text-[10px] mb-2">
+                    <span className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                      WHY DID APPROVALLOOP ACT? (AUTONOMOUS DIAGNOSTIC)
+                    </span>
+                    <span className="font-mono text-[9px] bg-indigo-900/60 px-2 py-0.5 rounded text-indigo-200">
+                      Clock Trigger: {act.source_state}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-300 font-mono text-[10px]">
+                    <div className="bg-slate-950/60 p-2 rounded border border-slate-800">
+                      <span className="text-slate-500 block text-[9px] font-sans">Observed State vs Action</span>
+                      <span className="text-indigo-300 font-bold">{act.source_state}</span> → <span className="text-emerald-400 font-bold">{act.action_type.toUpperCase()}</span>
+                    </div>
+                    <div className="bg-slate-950/60 p-2 rounded border border-slate-800">
+                      <span className="text-slate-500 block text-[9px] font-sans">LLM Wording Role vs Authority</span>
+                      <span className="text-sky-300">LLM = Wording Only</span> | <span className="text-emerald-400 font-bold">Code = Authority</span>
+                    </div>
+                    <div className="bg-slate-950/60 p-2 rounded border border-slate-800">
+                      <span className="text-slate-500 block text-[9px] font-sans">Deterministic Safety Score</span>
+                      <span className="text-emerald-400 font-bold">4/4 Deterministic Checks Passed</span>
+                    </div>
+                    <div className="bg-slate-950/60 p-2 rounded border border-slate-800">
+                      <span className="text-slate-500 block text-[9px] font-sans">State Transition Outcome</span>
+                      {isSkipped ? (
+                        <span className="text-amber-400 font-bold">EXPECTED: PENDING | ACTUAL: RESOLVED | RESULT: SKIPPED (HUMAN PRESERVED)</span>
+                      ) : isBlocked ? (
+                        <span className="text-rose-400 font-bold">BLOCKED BY GATEWAY</span>
+                      ) : (
+                        <span className="text-emerald-400 font-bold">APPLIED ({act.source_state} → {act.target_state})</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             );
           })

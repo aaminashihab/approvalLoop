@@ -207,15 +207,17 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 - [x] Gemini structured proposal generation via Pydantic
 - [x] Agent Registry with status, capabilities & allowed actions
 - [x] Zero-Trust Identity Provider (HMAC-SHA256 + GCP OIDC + Replay Protection)
-- [x] Model Armor-inspired deterministic safety guardrail
+- [x] Custom Deterministic Model-Safety Guardrail (prompt defense & secret leakage filter)
 - [x] Deterministic Policy Engine (`finance-v3`, `support-v1`, `sales-v1`)
 - [x] Human-in-the-Loop Approval Queue & durable workflow pause/resume
 - [x] Durable Async Runtime with Firestore task leasing & crash recovery
+- [x] Distributed Replay Protection with Firestore-backed request ID deduplication
 - [x] Persistent Memory Bank (Firestore & In-Memory with atomic transactions)
-- [x] OpenTelemetry correlated distributed tracing & audit ledger
+- [x] OpenTelemetry correlated distributed tracing & Observability ("Why did ApprovalLoop act?")
+- [x] Real Notification Providers (Slack Webhook & SMTP Email adapters)
 - [x] 3-Tier Demo Scenarios (Case A ALLOW, Case B HUMAN APPROVAL, Case C DENY)
 - [x] Google Cloud Run & Cloud Scheduler deployment automation
-- [x] 100% Clean test suite (98 passing backend unit/integration tests)
+- [x] 100% Clean test suite (103 passing backend unit/integration tests)
 
 ### OPTIONAL / FUTURE ROADMAP
 - [ ] Direct Google Cloud Pub/Sub integration for sub-second event streaming
@@ -257,7 +259,7 @@ ALLOW_INSECURE_DEMO_AUTH=false
 
 ### Step 3: Run Tests
 ```bash
-# Run full pytest suite (98 tests)
+# Run full pytest suite (103 tests)
 $env:PYTHONPATH="backend"
 python -m pytest backend/tests -v
 ```

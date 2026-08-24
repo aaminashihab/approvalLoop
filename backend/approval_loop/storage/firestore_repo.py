@@ -241,3 +241,30 @@ class FirestoreRepository(BaseRepository):
 
         return _claim_in_tx(transaction)
 
+    def check_and_record_request_id(
+        self,
+        request_id: str,
+        ttl_seconds: int = 300
+    ) -> bool:
+        transaction = self.client.transaction()
+        ref = self.client.collection("request_ids").document(request_id)
+        now = utc_now()
+
+        @firestore.transactional
+        def _check_tx(txn):
+            snapshot = ref.get(transaction=txn)
+            if snapshot.exists:
+                data = snapshot.to_dict()
+                exp = data.get("expires_at")
+                if exp and now.timestamp() < exp:
+                    return False
+            expires_at = (now + timedelta(seconds=ttl_seconds)).timestamp()
+            txn.set(ref, {"request_id": request_id, "created_at": now.isoformat(), "expires_at": expires_at})
+            return True
+
+        try:
+            return _check_tx(transaction)
+        except Exception:
+            return False
+
+

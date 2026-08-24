@@ -16,6 +16,7 @@ class InMemoryRepository(BaseRepository):
         self.workflow_memories: dict[str, Any] = {}
         self.async_tasks: dict[str, Any] = {}
         self.async_idempotency_index: dict[str, str] = {}
+        self.seen_request_ids: dict[str, Any] = {}  # request_id -> expires_at
         self._lock = threading.Lock()
 
     def get_report(self, report_id: str) -> ExpenseReport | None:
@@ -213,3 +214,20 @@ class InMemoryRepository(BaseRepository):
                     return rec
             return None
 
+    def check_and_record_request_id(
+        self,
+        request_id: str,
+        ttl_seconds: int = 300
+    ) -> bool:
+        with self._lock:
+            now = utc_now()
+            # Clean expired request_ids
+            expired_keys = [k for k, exp in self.seen_request_ids.items() if exp < now]
+            for k in expired_keys:
+                del self.seen_request_ids[k]
+
+            if request_id in self.seen_request_ids:
+                return False  # Already processed!
+
+            self.seen_request_ids[request_id] = now + timedelta(seconds=ttl_seconds)
+            return True

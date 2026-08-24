@@ -100,3 +100,16 @@ class BaseRepository(ABC):
         """
         return None
 
+    def check_and_record_request_id(
+        self,
+        request_id: str,
+        ttl_seconds: int = 300
+    ) -> bool:
+        """
+        Distributed Replay Protection:
+        Atomically checks if request_id has already been processed across Cloud Run nodes.
+        Returns True if request_id is new and successfully recorded, False if already seen (replay attack).
+        """
+        return True
+
+
