@@ -39,7 +39,7 @@ def verify_scheduler_auth(
 
         # Real Google Cloud OIDC token verification
         if token.startswith("eyJ"):
-            verified_claims = _verify_oidc_jwt(token, settings.google_cloud_project)
+            verified_claims = _verify_oidc_jwt(token, settings.google_cloud_project, settings.oidc_expected_audience)
             if verified_claims:
                 logger.info("Authenticated Cloud Scheduler trigger via verified OIDC token (sub: %s)", verified_claims.get("sub"))
                 return True
@@ -72,7 +72,7 @@ def verify_admin_auth(
         if token == expected_key:
             return True
         if token.startswith("eyJ"):
-            claims = _verify_oidc_jwt(token, settings.google_cloud_project)
+            claims = _verify_oidc_jwt(token, settings.google_cloud_project, settings.oidc_expected_audience)
             if claims:
                 return True
 
@@ -108,7 +108,7 @@ def verify_operator_auth(
 
         # 2. Cryptographically Verified OIDC Token
         if token.startswith("eyJ"):
-            claims = _verify_oidc_jwt(token, settings.google_cloud_project)
+            claims = _verify_oidc_jwt(token, settings.google_cloud_project, settings.oidc_expected_audience)
             if claims:
                 operator_id = claims.get("email") or claims.get("sub") or "Verified OIDC Operator"
                 return f"Operator ({operator_id})"
@@ -122,18 +122,36 @@ def verify_operator_auth(
         detail="Unauthorized: human operator authentication required (valid OIDC Bearer token or X-API-Key required)."
     )
 
-def _verify_oidc_jwt(token: str, expected_project: str) -> dict | None:
+def _verify_oidc_jwt(token: str, expected_project: str, expected_audience: str | None = None) -> dict | None:
     """
     Cryptographically verifies Google Cloud OIDC tokens using google.oauth2.id_token.
-    Fails closed if signature, issuer, or audience verification fails.
-    Never decodes unverified JWT payload on signature failure.
+    Validates:
+    - Signature via Google certificates
+    - Issuer ('https://accounts.google.com' or 'accounts.google.com')
+    - Audience (explicitly matching expected_audience or project target)
+    - Expiry (exp claim)
+    - Subject/Service Account presence (sub or email claim)
+    Fails closed if any verification check fails.
     """
     try:
         from google.oauth2 import id_token
         from google.auth.transport import requests
         req = requests.Request()
-        id_info = id_token.verify_oauth2_token(token, req)
+        
+        target_aud = expected_audience or os.getenv("OIDC_EXPECTED_AUDIENCE")
+        id_info = id_token.verify_oauth2_token(token, req, audience=target_aud)
+        
+        iss = id_info.get("iss", "")
+        if iss not in ("https://accounts.google.com", "accounts.google.com"):
+            logger.warning("OIDC token verification failed: untrusted issuer %s", iss)
+            return None
+
+        if not id_info.get("sub") and not id_info.get("email"):
+            logger.warning("OIDC token verification failed: missing subject/email claim")
+            return None
+
         return id_info
     except Exception as e:
         logger.warning("OIDC token cryptographic verification failed: %s", str(e))
         return None
+

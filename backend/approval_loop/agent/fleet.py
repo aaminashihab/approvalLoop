@@ -256,3 +256,127 @@ class SalesAgent(BaseFleetAgent):
         )
         auth_context = self.create_auth_context()
         return proposal, auth_context
+
+
+class WorkflowAgent(BaseFleetAgent):
+    """
+    Fleet Workflow Agent: Observes expense report state and proposes autonomous actions.
+    """
+    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None):
+        super().__init__(agent_id="workflow-agent", agent_version="1.0.0", identity_provider=identity_provider)
+
+
+class PolicyAgent(BaseFleetAgent):
+    """
+    Fleet Policy Agent: Evaluates risk levels and provides policy recommendations for proposals.
+    """
+    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None):
+        super().__init__(agent_id="policy-agent", agent_version="1.0.0", identity_provider=identity_provider)
+
+
+class CommunicationAgent(BaseFleetAgent):
+    """
+    Fleet Communication Agent: Generates contextual wording for nudges and escalations.
+    """
+    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None):
+        super().__init__(agent_id="communication-agent", agent_version="1.0.0", identity_provider=identity_provider)
+
+
+class EscalationAgent(BaseFleetAgent):
+    """
+    Fleet Escalation Agent: Formulates procedural escalation proposals for stalled approvals.
+    """
+    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None):
+        super().__init__(agent_id="escalation-agent", agent_version="1.0.0", identity_provider=identity_provider)
+
+
+class FleetOrchestrator:
+    """
+    Enterprise Fleet Multi-Agent Orchestrator:
+    Demonstrates explicit agent delegation across specialized roles:
+    Clock -> WorkflowAgent -> PolicyAgent -> CommunicationAgent -> EscalationAgent -> AgentGateway.
+    
+    Authority Invariant:
+    Agents generate structured recommendations and wording.
+    Agent Gateway and Deterministic Policy retain 100% authority over authorization and execution.
+    """
+    def __init__(
+        self,
+        gateway: Any,
+        identity_provider: Optional[AgentIdentityProvider] = None
+    ):
+        self.gateway = gateway
+        self.identity_provider = identity_provider
+        self.workflow_agent = WorkflowAgent(identity_provider=identity_provider)
+        self.policy_agent = PolicyAgent(identity_provider=identity_provider)
+        self.comm_agent = CommunicationAgent(identity_provider=identity_provider)
+        self.escalation_agent = EscalationAgent(identity_provider=identity_provider)
+
+    def evaluate_and_propose(
+        self,
+        report_id: str,
+        submitter_name: str,
+        submitter_email: str,
+        approver_email: str,
+        amount: Decimal,
+        currency: str = "USD",
+        description: str = "Expense report",
+        is_escalation: bool = False,
+        backup_approver_email: Optional[str] = None
+    ) -> tuple[AgentActionProposal, AgentAuthContext, Any]:
+        """
+        Executes multi-agent pipeline with visible delegation trace.
+        """
+        from approval_loop.observability.tracer import OpenTelemetryTracer
+        tracer = OpenTelemetryTracer.get_tracer()
+        tracer.start_trace("fleet.multi_agent_orchestration")
+
+        try:
+            # 1. Workflow Agent: Identifies state & action
+            with tracer.start_span("workflow_agent.observe", {"report_id": report_id}):
+                action_name = "escalate_approval" if is_escalation else "nudge_approver"
+                target_recipient = approver_email
+
+            # 2. Escalation Agent: Resolves backup authority if escalating
+            if is_escalation:
+                with tracer.start_span("escalation_agent.resolve", {"primary": approver_email, "backup": backup_approver_email}):
+                    target_recipient = backup_approver_email or "admin@company.com"
+
+            # 3. Communication Agent: Generates contextual wording
+            with tracer.start_span("communication_agent.draft", {"action_name": action_name}):
+                wording = (
+                    f"Notification draft: Expense report {report_id} submitted by {submitter_name} for {currency} {amount} requires approval."
+                )
+
+            # 4. Policy Agent: Assesses risk level
+            with tracer.start_span("policy_agent.assess_risk", {"amount": str(amount)}):
+                risk = "high" if amount >= Decimal("5000.00") else ("medium" if amount >= Decimal("1000.00") else "low")
+
+            # 5. Formulate Proposal
+            proposal_id = f"prop_fleet_{uuid.uuid4().hex[:8]}"
+            workflow_id = f"wf_fleet_{uuid.uuid4().hex[:8]}"
+            proposal = AgentActionProposal(
+                proposal_id=proposal_id,
+                workflow_id=workflow_id,
+                agent_id=self.workflow_agent.agent_id,
+                agent_version=self.workflow_agent.agent_version,
+                action_name=action_name,
+                target_resource_id=report_id,
+                amount=amount,
+                currency=currency,
+                recipient=target_recipient,
+                justification=f"Fleet orchestration ({action_name}) with risk={risk}: {wording}",
+                raw_llm_reasoning=f"Multi-agent delegation: WorkflowAgent -> EscalationAgent -> CommunicationAgent -> PolicyAgent (risk={risk})."
+            )
+            auth_context = self.workflow_agent.create_auth_context()
+
+            # 6. Gateway: Authoritative Authorization Gate
+            with tracer.start_span("gateway.authorize", {"proposal_id": proposal_id}):
+                decision = self.gateway.authorize_action(proposal, auth_context)
+
+            return proposal, auth_context, decision
+
+        finally:
+            tracer.end_trace()
+
+

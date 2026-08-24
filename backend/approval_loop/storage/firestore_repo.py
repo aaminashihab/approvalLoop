@@ -211,3 +211,33 @@ class FirestoreRepository(BaseRepository):
         from approval_loop.runtime.async_runtime import AsyncTaskRecord
         return [AsyncTaskRecord(**d.to_dict()) for d in docs]
 
+    def claim_async_task_transaction(
+        self,
+        worker_id: str = "worker-1",
+        lease_duration_seconds: int = 60
+    ) -> Any | None:
+        transaction = self.client.transaction()
+        now = utc_now()
+
+        @firestore.transactional
+        def _claim_in_tx(txn):
+            query = self.client.collection(self.tasks_col).where("status", "in", ["queued", "retry_pending"]).limit(20)
+            docs = list(query.stream(transaction=txn))
+            from approval_loop.runtime.async_runtime import AsyncTaskState, AsyncTaskRecord
+            for doc in docs:
+                data = doc.to_dict()
+                rec = AsyncTaskRecord(**data)
+                if rec.next_attempt_at and now < rec.next_attempt_at:
+                    continue
+                rec.status = AsyncTaskState.LEASED
+                rec.claimed_at = now
+                rec.worker_id = worker_id
+                rec.lease_expires_at = now + timedelta(seconds=lease_duration_seconds)
+                rec.attempt_count += 1
+                task_ref = self.client.collection(self.tasks_col).document(rec.task_id)
+                txn.set(task_ref, rec.to_dict())
+                return rec
+            return None
+
+        return _claim_in_tx(transaction)
+

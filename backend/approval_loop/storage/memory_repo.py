@@ -188,3 +188,28 @@ class InMemoryRepository(BaseRepository):
                 tasks = [t for t in tasks if getattr(t, "status", None) == status or (isinstance(t, dict) and t.get("status") == status)]
             return tasks
 
+    def claim_async_task_transaction(
+        self,
+        worker_id: str = "worker-1",
+        lease_duration_seconds: int = 60
+    ) -> Any | None:
+        with self._lock:
+            now = utc_now()
+            from approval_loop.runtime.async_runtime import AsyncTaskState, AsyncTaskRecord
+            tasks = list(self.async_tasks.values())
+            for task in tasks:
+                rec = task if isinstance(task, AsyncTaskRecord) else AsyncTaskRecord(**task)
+                if rec.status in (AsyncTaskState.QUEUED, AsyncTaskState.RETRY_PENDING):
+                    if rec.next_attempt_at and now < rec.next_attempt_at:
+                        continue
+                    rec.status = AsyncTaskState.LEASED
+                    rec.claimed_at = now
+                    rec.worker_id = worker_id
+                    rec.lease_expires_at = now + timedelta(seconds=lease_duration_seconds)
+                    rec.attempt_count += 1
+                    self.async_tasks[rec.task_id] = rec
+                    if rec.idempotency_key:
+                        self.async_idempotency_index[rec.idempotency_key] = rec.task_id
+                    return rec
+            return None
+

@@ -360,7 +360,11 @@ def list_reports(engine: ApprovalEngine = Depends(get_engine)):
     return [r.to_dict() for r in reports]
 
 @router.post("/reports")
-def create_report(req: CreateReportRequest, engine: ApprovalEngine = Depends(get_engine)):
+def create_report(
+    req: CreateReportRequest,
+    engine: ApprovalEngine = Depends(get_engine),
+    operator: str = Depends(verify_operator_auth)
+):
     report_id = req.report_id or f"EXP-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
         report_id=report_id,
@@ -377,7 +381,11 @@ def create_report(req: CreateReportRequest, engine: ApprovalEngine = Depends(get
     return {"message": "Report created", "report": report.to_dict()}
 
 @router.post("/reports/{report_id}/resolve")
-def resolve_report(report_id: str, engine: ApprovalEngine = Depends(get_engine)):
+def resolve_report(
+    report_id: str,
+    engine: ApprovalEngine = Depends(get_engine),
+    operator: str = Depends(verify_operator_auth)
+):
     report = engine.repo.resolve_report(report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -404,6 +412,9 @@ def trigger_tick(
 
 @router.post("/seed")
 def seed_demo_data(engine: ApprovalEngine = Depends(get_engine), settings: Settings = Depends(get_settings)):
+    if settings.app_env == AppEnvironment.PRODUCTION:
+        raise HTTPException(status_code=403, detail="Demo endpoints disabled in PRODUCTION environment.")
+
     now = utc_now()
     demo_reports = [
         ExpenseReport(
@@ -477,7 +488,14 @@ def seed_demo_data(engine: ApprovalEngine = Depends(get_engine), settings: Setti
     return {"message": "Seeded 5 demo expense reports", "count": len(demo_reports)}
 
 @router.post("/demo/advance-time")
-def advance_time(req: AdvanceTimeRequest, engine: ApprovalEngine = Depends(get_engine)):
+def advance_time(
+    req: AdvanceTimeRequest,
+    engine: ApprovalEngine = Depends(get_engine),
+    settings: Settings = Depends(get_settings)
+):
+    if settings.app_env == AppEnvironment.PRODUCTION:
+        raise HTTPException(status_code=403, detail="Demo endpoints disabled in PRODUCTION environment.")
+
     reports = engine.repo.list_all_reports()
     updated = []
     delta = timedelta(seconds=req.seconds)
@@ -490,7 +508,13 @@ def advance_time(req: AdvanceTimeRequest, engine: ApprovalEngine = Depends(get_e
     return {"message": f"Advanced time by {req.seconds}s for {len(updated)} reports", "updated": updated}
 
 @router.post("/simulate-adversarial")
-def simulate_adversarial(engine: ApprovalEngine = Depends(get_engine)):
+def simulate_adversarial(
+    engine: ApprovalEngine = Depends(get_engine),
+    settings: Settings = Depends(get_settings)
+):
+    if settings.app_env == AppEnvironment.PRODUCTION:
+        raise HTTPException(status_code=403, detail="Simulation endpoints disabled in PRODUCTION environment.")
+
     now = utc_now()
     report_id = f"EXP-ADV-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
@@ -530,7 +554,13 @@ def simulate_adversarial(engine: ApprovalEngine = Depends(get_engine)):
     }
 
 @router.post("/simulate-race")
-def simulate_race_condition(engine: ApprovalEngine = Depends(get_engine)):
+def simulate_race_condition(
+    engine: ApprovalEngine = Depends(get_engine),
+    settings: Settings = Depends(get_settings)
+):
+    if settings.app_env == AppEnvironment.PRODUCTION:
+        raise HTTPException(status_code=403, detail="Simulation endpoints disabled in PRODUCTION environment.")
+
     now = utc_now()
     report_id = f"EXP-RACE-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
@@ -566,7 +596,13 @@ def simulate_race_condition(engine: ApprovalEngine = Depends(get_engine)):
     }
 
 @router.post("/simulate-notification-failure")
-def simulate_notification_failure(engine: ApprovalEngine = Depends(get_engine)):
+def simulate_notification_failure(
+    engine: ApprovalEngine = Depends(get_engine),
+    settings: Settings = Depends(get_settings)
+):
+    if settings.app_env == AppEnvironment.PRODUCTION:
+        raise HTTPException(status_code=403, detail="Simulation endpoints disabled in PRODUCTION environment.")
+
     now = utc_now()
     report_id = f"EXP-FAIL-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
@@ -600,5 +636,8 @@ def simulate_notification_failure(engine: ApprovalEngine = Depends(get_engine)):
 
 @router.post("/demo/reset")
 def reset_demo(engine: ApprovalEngine = Depends(get_engine), settings: Settings = Depends(get_settings)):
+    if settings.app_env == AppEnvironment.PRODUCTION:
+        raise HTTPException(status_code=403, detail="Demo endpoints disabled in PRODUCTION environment.")
+
     seed_res = seed_demo_data(engine, settings)
     return {"message": "Demo state reset successfully", "seeded": seed_res}

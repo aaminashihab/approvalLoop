@@ -8,7 +8,7 @@ from approval_loop.storage.base import BaseRepository
 from approval_loop.domain.models import (
     ExpenseReport, ActionRecord, ActionType, ReportStatus,
     ValidatorResultEnum, ActionStatus, NotificationEnvelope,
-    AutonomyMetrics, utc_now
+    StateTransitionResult, AutonomyMetrics, utc_now
 )
 from approval_loop.domain.eligibility import EligibilityEvaluator
 from approval_loop.domain.registry import ApproverRegistry
@@ -210,6 +210,25 @@ class ApprovalEngine:
                             active_action.validator_result = ValidatorResultEnum.BLOCKED
                             active_action.validator_reason = p_reason
                             self.repo.save_action(active_action)
+                            processed_actions.append(active_action)
+                            continue
+
+                    # 7.5. FINAL PRE-DISPATCH STATE CHECK: Prevent stale notifications if state changed in-flight
+                    with self.tracer.start_span("pre_dispatch_check", {"report_id": report.report_id}):
+                        fresh_report = self.repo.get_report(report.report_id)
+                        if not fresh_report or fresh_report.status != active_action.source_state:
+                            logger.info(
+                                "Pre-dispatch check: report %s status changed (expected %s, found %s). Skipping notification dispatch.",
+                                report.report_id,
+                                active_action.source_state.value,
+                                fresh_report.status.value if fresh_report else "DELETED"
+                            )
+                            active_action.status = ActionStatus.COMPLETED
+                            active_action.state_transition = StateTransitionResult.SKIPPED
+                            active_action.skip_reason = f"report state changed before transition commit (expected={active_action.source_state.value}, found={fresh_report.status.value if fresh_report else 'DELETED'})"
+                            active_action.completed_at = utc_now()
+                            self.repo.save_action(active_action)
+                            self.total_unsafe_transitions_prevented += 1
                             processed_actions.append(active_action)
                             continue
 

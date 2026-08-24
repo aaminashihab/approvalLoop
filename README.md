@@ -215,7 +215,7 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 - [x] OpenTelemetry correlated distributed tracing & audit ledger
 - [x] 3-Tier Demo Scenarios (Case A ALLOW, Case B HUMAN APPROVAL, Case C DENY)
 - [x] Google Cloud Run & Cloud Scheduler deployment automation
-- [x] 100% Clean test suite (90 passing backend unit/integration tests)
+- [x] 100% Clean test suite (98 passing backend unit/integration tests)
 
 ### OPTIONAL / FUTURE ROADMAP
 - [ ] Direct Google Cloud Pub/Sub integration for sub-second event streaming
@@ -257,7 +257,7 @@ ALLOW_INSECURE_DEMO_AUTH=false
 
 ### Step 3: Run Tests
 ```bash
-# Run full pytest suite (90 tests)
+# Run full pytest suite (98 tests)
 $env:PYTHONPATH="backend"
 python -m pytest backend/tests -v
 ```

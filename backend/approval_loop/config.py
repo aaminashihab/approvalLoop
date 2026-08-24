@@ -49,6 +49,9 @@ class Settings(BaseModel):
     google_cloud_project: str = Field(
         default_factory=lambda: os.getenv("GOOGLE_CLOUD_PROJECT", "approval-loop-hackathon")
     )
+    oidc_expected_audience: str | None = Field(
+        default_factory=lambda: os.getenv("OIDC_EXPECTED_AUDIENCE")
+    )
     gemini_api_key: str | None = Field(
         default_factory=lambda: os.getenv("GEMINI_API_KEY")
     )

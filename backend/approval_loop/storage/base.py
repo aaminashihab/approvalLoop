@@ -89,3 +89,14 @@ class BaseRepository(ABC):
     def list_async_tasks(self, status: Optional[str] = None) -> list[Any]:
         return []
 
+    def claim_async_task_transaction(
+        self,
+        worker_id: str = "worker-1",
+        lease_duration_seconds: int = 60
+    ) -> Any | None:
+        """
+        Atomically leases the next eligible QUEUED or RETRY_PENDING task.
+        Guarantees that two concurrent workers will never claim the same task.
+        """
+        return None
+
