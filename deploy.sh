@@ -32,7 +32,7 @@ echo "=================================================="
 
 # 1. Build and deploy container to Cloud Run
 ALLOW_UNAUTH="--allow-unauthenticated"
-if [ "$AUTH_MODE" = "iam-oidc" ] && [ "$APP_ENV" = "production" ]; then
+if [ "$APP_ENV" = "production" ] || [ "$AUTH_MODE" = "iam-oidc" ]; then
     ALLOW_UNAUTH="--no-allow-unauthenticated"
 fi
 

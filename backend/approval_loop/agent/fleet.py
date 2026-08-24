@@ -106,7 +106,7 @@ class FinanceAgent(BaseFleetAgent):
         """
         Reasons over the financial situation and emits a structured proposal.
         """
-        # Guardrail prompt inspection (Model Armor)
+        # Guardrail prompt inspection (Deterministic Model Safety Guardrail)
         safety = self.guardrail.inspect_prompt(reason)
         if not safety.passed:
             logger.warning("FinanceAgent prompt rejected by safety guardrail: %s", safety.reason)

@@ -140,17 +140,41 @@ class AgentIdentityProvider:
 
         return True, f"Agent '{agent.agent_id}' (v{agent.version}) authenticated successfully via {auth_context.verification_method}.", claims
 
-    def _verify_gcp_oidc_token(self, token: str, expected_agent_id: str) -> Optional[dict]:
+    def _verify_gcp_oidc_token(
+        self,
+        token: str,
+        expected_agent_id: str,
+        expected_audience: Optional[str] = None
+    ) -> Optional[dict]:
         """
         Validates Google Cloud IAM Service Account OIDC tokens using google.oauth2.id_token.
-        Fails closed if cryptographic signature or audience verification fails.
+        Validates:
+        - Cryptographic signature via Google certificates
+        - Issuer ('https://accounts.google.com' or 'accounts.google.com')
+        - Audience (explicitly matching expected_audience or OIDC_EXPECTED_AUDIENCE env var)
+        - Expiry (exp claim)
+        - Subject / Email identity claim
+        Fails closed on any error.
         """
+        import os
         try:
             from google.oauth2 import id_token
             from google.auth.transport import requests
             req = requests.Request()
-            id_info = id_token.verify_oauth2_token(token, req)
-            logger.info("Successfully verified Google Cloud OIDC token for sub: %s", id_info.get("sub"))
+            target_aud = expected_audience or os.getenv("OIDC_EXPECTED_AUDIENCE")
+            id_info = id_token.verify_oauth2_token(token, req, audience=target_aud)
+
+            iss = id_info.get("iss", "")
+            if iss not in ("https://accounts.google.com", "accounts.google.com"):
+                logger.warning("GCP OIDC token verification failed: untrusted issuer '%s'", iss)
+                return None
+
+            sub = id_info.get("sub") or id_info.get("email")
+            if not sub:
+                logger.warning("GCP OIDC token verification failed: missing subject/email claim")
+                return None
+
+            logger.info("Successfully verified Google Cloud OIDC token for sub: %s", sub)
             return id_info
         except Exception as e:
             logger.warning("GCP OIDC token verification failed: %s", str(e))

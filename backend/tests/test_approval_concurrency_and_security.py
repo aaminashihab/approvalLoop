@@ -18,7 +18,14 @@ from approval_loop.api.app import app
 
 def test_jwt_verification_fails_closed():
     """Verify that unverified / bad JWT signatures fail closed and are never trusted."""
-    settings = Settings(app_env=AppEnvironment.PRODUCTION, scheduler_api_key="prod-secret-123")
+    settings = Settings(
+        app_env=AppEnvironment.PRODUCTION,
+        scheduler_api_key="prod-secret-123",
+        agent_identity_secret="prod-identity-secret-123",
+        admin_fallback_email="admin@company.com",
+        gemini_api_key="sk-real-gemini-key",
+        google_cloud_project="my-prod-project"
+    )
     
     # 1. Fake / forged JWT payload without valid Google signature
     forged_jwt = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJzdWIiOiIxMjM0NTY3ODkwIiwiZW1haWwiOiJhdHRhY2tlckBldmlsLmNvbSJ9.invalid_signature_hash"
@@ -38,12 +45,16 @@ def test_jwt_verification_fails_closed():
 
 def test_production_safety_startup_validation():
     """Verify startup validation blocks dangerous demo configs in PRODUCTION environment."""
-    dangerous_settings = Settings(
-        app_env=AppEnvironment.PRODUCTION,
-        allow_insecure_demo_auth=True
-    )
-    with pytest.raises(ValueError) as exc_info:
-        dangerous_settings.validate_production_safety()
+    with pytest.raises((ValueError, Exception)) as exc_info:
+        Settings(
+            app_env=AppEnvironment.PRODUCTION,
+            allow_insecure_demo_auth=True,
+            scheduler_api_key="prod-secret-123",
+            agent_identity_secret="prod-identity-secret-123",
+            admin_fallback_email="admin@company.com",
+            gemini_api_key="sk-real-gemini-key",
+            google_cloud_project="my-prod-project"
+        )
     assert "ALLOW_INSECURE_DEMO_AUTH cannot be enabled when APP_ENV=production" in str(exc_info.value)
 
 def test_policy_rejects_unknown_profile():

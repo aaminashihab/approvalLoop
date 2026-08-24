@@ -42,7 +42,14 @@ def test_unauthenticated_mutation_endpoints_rejected():
 def test_demo_routes_disabled_in_production():
     """Verify demo/simulation routes return 403 Forbidden when APP_ENV=production."""
     from approval_loop.api.routes import get_settings
-    prod_settings = Settings(app_env=AppEnvironment.PRODUCTION, scheduler_api_key="sec-key-1234567890")
+    prod_settings = Settings(
+        app_env=AppEnvironment.PRODUCTION,
+        scheduler_api_key="sec-key-1234567890",
+        agent_identity_secret="prod-identity-secret-123",
+        admin_fallback_email="admin@company.com",
+        gemini_api_key="sk-real-gemini-key",
+        google_cloud_project="my-prod-project"
+    )
     app.dependency_overrides[get_settings] = lambda: prod_settings
 
     try:

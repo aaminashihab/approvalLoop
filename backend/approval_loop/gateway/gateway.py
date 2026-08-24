@@ -88,7 +88,7 @@ class AgentGateway:
                     self._record_in_memory(proposal, decision)
                     return decision
 
-            # 2. Model Safety & Prompt Defense (Model Armor)
+            # 2. Deterministic Model Safety & Prompt Defense Guardrail
             with self.tracer.start_span("model_safety.inspect", {"agent_id": proposal.agent_id}):
                 safety_res = self.guardrail.inspect_model_output(proposal.justification)
                 if not safety_res.passed:

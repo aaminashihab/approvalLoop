@@ -84,11 +84,11 @@ class ModelSafetyGuardrail:
             logger.warning("Model safety guardrail intercepted prompt threats: %s", threats)
             return ModelSafetyResult(
                 passed=False,
-                reason=f"Model Armor Intercept: {'; '.join(threats)}",
+                reason=f"Deterministic Model Safety Guardrail Intercept: {'; '.join(threats)}",
                 detected_threats=threats
             )
 
-        return ModelSafetyResult(passed=True, reason="Prompt verified safe by Model Armor.")
+        return ModelSafetyResult(passed=True, reason="Prompt verified safe by Deterministic Model Safety Guardrail.")
 
     def inspect_model_output(self, output_text: str) -> ModelSafetyResult:
         """Inspects LLM-generated output for unsafe payloads or leaked credentials."""
@@ -108,8 +108,8 @@ class ModelSafetyGuardrail:
             logger.warning("Model safety guardrail intercepted output threats: %s", threats)
             return ModelSafetyResult(
                 passed=False,
-                reason=f"Model Armor Intercept: {'; '.join(threats)}",
+                reason=f"Deterministic Model Safety Guardrail Intercept: {'; '.join(threats)}",
                 detected_threats=threats
             )
 
-        return ModelSafetyResult(passed=True, reason="Model output verified safe by Model Armor.")
+        return ModelSafetyResult(passed=True, reason="Model output verified safe by Deterministic Model Safety Guardrail.")

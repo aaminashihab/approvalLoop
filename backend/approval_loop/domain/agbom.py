@@ -22,7 +22,7 @@ class AgentBillOfMaterials(BaseModel):
     tools: list[str] = Field(default_factory=lambda: ["notification_worker", "firestore_transaction_outbox", "payment_gateway", "erp_ledger_sync"])
     safety_mechanisms: list[str] = Field(default_factory=lambda: [
         "zero_trust_cryptographic_agent_identity",
-        "model_armor_prompt_defense_guardrail",
+        "deterministic_model_safety_guardrail",
         "approval_loop_agent_gateway",
         "deterministic_state_machine",
         "4_point_safety_validator",

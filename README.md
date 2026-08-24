@@ -32,7 +32,7 @@ ApprovalLoop enforces an absolute separation of concerns:
 | :--- | :--- | :--- |
 | **Reasoning & Proposals** | **Gemini Agent Fleet** | Gemini 3.5 via Google GenAI SDK (`google-genai`) emits structured `AgentActionProposal` |
 | **Identity & Authentication** | **Agent Identity Layer** | HMAC-SHA256 & Google Cloud IAM OIDC zero-trust token verification with replay protection |
-| **Prompt & Payload Defense** | **Model Safety Guardrail** | Model Armor-inspired deterministic safety filter intercepting prompt injections & secret leaks |
+| **Prompt & Payload Defense** | **Deterministic Model Safety Guardrail** | Model Armor-inspired deterministic safety filter intercepting prompt injections & secret leaks |
 | **Parameter Integrity** | **4-Point Safety Validator** | Deterministic mathematical checks (exact Decimal precision, ID matching) |
 | **Authorization Policy** | **Policy Engine** | Versioned deterministic profiles (`finance-v3`, `support-v1`, `sales-v1`) |
 | **Execution Governance** | **Agent Gateway** | Emits `ALLOW`, `REQUIRE_HUMAN_APPROVAL`, or `DENY` decisions |
@@ -73,9 +73,9 @@ ApprovalLoop enforces an absolute separation of concerns:
                                                  │
                         ┌────────────────────────┼────────────────────────┐
                         ▼                        ▼                        ▼
-                  Model Safety                Policy                Deterministic
-                    Guardrail                 Engine                  Validator
-                 (Model Armor)            (Domain/Limits)           (Facts/Types)
+           Deterministic Model Safety         Policy                Deterministic
+                   Guardrail                  Engine                  Validator
+                (Domain/Limits)           (Facts/Types)
                         │                        │                        │
                         └────────────────────────┼────────────────────────┘
                                                  │
@@ -144,7 +144,7 @@ Persistent in **Google Cloud Firestore**, the Agent Registry defines the identit
 
 ---
 
-## 6. Model Armor-Inspired Safety Guardrail
+## 6. Model Armor-Inspired Deterministic Safety Guardrail
 
 The `ModelSafetyGuardrail` operates before and after LLM inference as a deterministic defense layer:
 - **Prompt Injection Defense:** Intercepts instruction overrides (`ignore prior rules`, `DAN mode`, `developer mode`, `system override`).
@@ -191,7 +191,7 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 3. Agent wakes autonomously and reads persistent Memory Bank context.
 4. Gemini analyzes the situation and drafts a structured escalation proposal.
 5. Agent Gateway verifies identity (HMAC/OIDC).
-6. Safety layer checks input/output (Model Armor).
+6. Safety layer checks input/output (Deterministic Model Safety Guardrail).
 7. Policy evaluates risk: refund amount ₹20,000 ($200) falls in the medium-risk tier (`REQUIRE_HUMAN_APPROVAL`).
 8. Workflow pauses durably in Memory Bank.
 9. Human Approval Queue displays the pending decision.
@@ -217,7 +217,7 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 - [x] Real Notification Providers (Slack Webhook & SMTP Email adapters)
 - [x] 3-Tier Demo Scenarios (Case A ALLOW, Case B HUMAN APPROVAL, Case C DENY)
 - [x] Google Cloud Run & Cloud Scheduler deployment automation
-- [x] 100% Clean test suite (103 passing backend unit/integration tests)
+- [x] 100% Clean test suite (114 passing backend unit/integration tests)
 
 ### OPTIONAL / FUTURE ROADMAP
 - [ ] Direct Google Cloud Pub/Sub integration for sub-second event streaming
@@ -259,7 +259,7 @@ ALLOW_INSECURE_DEMO_AUTH=false
 
 ### Step 3: Run Tests
 ```bash
-# Run full pytest suite (103 tests)
+# Run full pytest suite (114 tests)
 $env:PYTHONPATH="backend"
 python -m pytest backend/tests -v
 ```

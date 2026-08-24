@@ -1,5 +1,6 @@
 import os
 from enum import Enum
+from typing import Any
 from pydantic import BaseModel, Field
 
 class AppEnvironment(str, Enum):
@@ -73,6 +74,9 @@ class Settings(BaseModel):
     @property
     def allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins_raw.split(",") if o.strip()]
+
+    def model_post_init(self, __context: Any) -> None:
+        self.validate_production_safety()
 
     def validate_production_safety(self):
         """Hard production-hardening validation guards."""

@@ -27,7 +27,7 @@ ApprovalLoop acts as the **Fortified Execution Governance Gateway** for enterpri
 
 1. **Gemini Agent Fleet:** Orchestrates specialized institutional agents (**Finance Agent**, **Support Agent**, **Sales Agent**) built with **Google Gemini 3.5** and the **Google GenAI SDK** (`google-genai`).
 2. **Zero-Trust Agent Identity:** Authenticates agent requests using **HMAC-SHA256** cryptographic signatures and **Google Cloud IAM OIDC** tokens, checking against a Firestore-backed **Agent Registry** capability whitelist.
-3. **Model Safety Guardrails (Model Armor):** Intercepts prompt injections, adversarial overrides, and secret leakage before and after LLM inference.
+3. **Deterministic Model Safety Guardrail:** Intercepts prompt injections, adversarial overrides, and secret leakage before and after LLM inference.
 4. **Deterministic Policy Engine:** Enforces immutable, reproducible, versioned policy profiles (`finance-v3`, `support-v1`, `sales-v1`) with mathematical `Decimal` precision:
    - **Case A (< ₹5,000 / $50):** `ALLOW` $\rightarrow$ Automatic execution.
    - **Case B (₹5,000–₹25,000 / $50–$250):** `REQUIRE_HUMAN_APPROVAL` $\rightarrow$ Workflow pauses in Memory Bank, queued for human operator sign-off.
@@ -55,8 +55,8 @@ ApprovalLoop acts as the **Fortified Execution Governance Gateway** for enterpri
 
 ## 🧪 Verification & Scale Benchmark
 
-- **103 Automated Pytest Tests Passing (100% Pass Rate)**
-- **1,000-Report Scale Benchmark:** 1,000 concurrent synthetic approval lifecycles evaluated in 0.25s (local test environment) with 0 duplicate sends and 0 state corruptions.
+- **114 Automated Pytest Tests Passing (100% Pass Rate)**
+- **1,000-Report Scale Benchmark:** 1,000 synthetic approval lifecycles evaluated in 0.18s in a deterministic synthetic local benchmark with 0 duplicate sends, 0 invalid transitions, and 0 state corruptions.
 - **Critical Demo Scenarios:** Automated tests and interactive UI verifying Case A (Auto-ALLOW), Case B (Human Sign-Off), and Case C (Deterministic DENY).
 
 ---

@@ -99,7 +99,14 @@ def test_tracer_attribute_sanitization():
     assert span.attributes["report_id"] == "EXP-303"
 
 def test_verify_scheduler_auth_header_and_oidc():
-    settings = Settings(app_env=AppEnvironment.PRODUCTION, scheduler_api_key="production-secret-999")
+    settings = Settings(
+        app_env=AppEnvironment.PRODUCTION,
+        scheduler_api_key="production-secret-999",
+        agent_identity_secret="prod-identity-secret-123",
+        admin_fallback_email="admin@company.com",
+        gemini_api_key="sk-real-gemini-key",
+        google_cloud_project="my-prod-project"
+    )
     
     # 1. Valid X-API-Key
     assert verify_scheduler_auth(settings=settings, x_api_key="production-secret-999") is True
