@@ -6,6 +6,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from approval_loop.domain.models import ActionType
 from approval_loop.agent.prompts import build_drafting_prompt
+from approval_loop.guardrails.safety_guardrail import ModelSafetyGuardrail
 
 logger = logging.getLogger("approval_loop.drafter")
 
@@ -21,9 +22,10 @@ class GeminiAgentDrafter:
     Google GenAI SDK Drafter (Google Agent Framework).
     Boundary: LLM proposes language wording and reasoning; deterministic code owns the authoritative business figures.
     """
-    def __init__(self, api_key: str | None = None, model: str | None = None):
+    def __init__(self, api_key: str | None = None, model: str | None = None, guardrail: Optional[ModelSafetyGuardrail] = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         self.model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+        self.guardrail = guardrail or ModelSafetyGuardrail()
         self.client = None
         if self.api_key:
             try:
@@ -88,13 +90,25 @@ class GeminiAgentDrafter:
             action_type, report_id, submitter, amount, currency, description, hours_pending
         )
 
+        # 1. Pre-LLM Model Armor Prompt Inspection
+        safety_prompt = self.guardrail.inspect_prompt(prompt)
+        if not safety_prompt.passed:
+            logger.warning("GeminiAgentDrafter prompt rejected by Model Armor guardrail: %s", safety_prompt.reason)
+            return fallback
+
         try:
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=prompt
             )
             raw_text = response.text.strip()
-            
+
+            # 2. Post-LLM Model Armor Output Inspection
+            safety_out = self.guardrail.inspect_model_output(raw_text, user_prompt=prompt)
+            if not safety_out.passed:
+                logger.warning("GeminiAgentDrafter output rejected by Model Armor guardrail: %s", safety_out.reason)
+                return fallback
+
             # Clean possible markdown json fences
             clean_json = raw_text
             if clean_json.startswith("```"):

@@ -2,6 +2,9 @@ import os
 from enum import Enum
 from typing import Any
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class AppEnvironment(str, Enum):
     TEST = "test"
@@ -48,7 +51,7 @@ class Settings(BaseModel):
         default_factory=lambda: os.getenv("APP_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080,http://127.0.0.1:8080,http://127.0.0.1:5173")
     )
     google_cloud_project: str = Field(
-        default_factory=lambda: os.getenv("GOOGLE_CLOUD_PROJECT", "approval-loop-hackathon")
+        default_factory=lambda: os.getenv("GOOGLE_CLOUD_PROJECT", "model-factor-506215-v8")
     )
     oidc_expected_audience: str | None = Field(
         default_factory=lambda: os.getenv("OIDC_EXPECTED_AUDIENCE")
@@ -61,6 +64,18 @@ class Settings(BaseModel):
     )
     allow_insecure_demo_auth: bool = Field(
         default_factory=lambda: os.getenv("ALLOW_INSECURE_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
+    )
+    model_armor_enabled: bool = Field(
+        default_factory=lambda: os.getenv("MODEL_ARMOR_ENABLED", "true").lower() in ("true", "1", "yes")
+    )
+    model_armor_fail_closed: bool = Field(
+        default_factory=lambda: os.getenv("MODEL_ARMOR_FAIL_CLOSED", "true").lower() in ("true", "1", "yes")
+    )
+    model_armor_location: str = Field(
+        default_factory=lambda: os.getenv("MODEL_ARMOR_LOCATION", os.getenv("REGION", "us-central1"))
+    )
+    model_armor_template_id: str = Field(
+        default_factory=lambda: os.getenv("MODEL_ARMOR_TEMPLATE_ID", "default-guardrail")
     )
     firestore_collection_reports: str = "expense_reports"
     firestore_collection_actions: str = "approval_actions"

@@ -88,9 +88,10 @@ class AgentGateway:
                     self._record_in_memory(proposal, decision)
                     return decision
 
-            # 2. Deterministic Model Safety & Prompt Defense Guardrail
+            # 2. Google Cloud Model Armor & Deterministic Prompt Defense Guardrail
             with self.tracer.start_span("model_safety.inspect", {"agent_id": proposal.agent_id}):
-                safety_res = self.guardrail.inspect_model_output(proposal.justification)
+                content_to_inspect = f"{proposal.justification}\n{proposal.raw_llm_reasoning or ''}"
+                safety_res = self.guardrail.inspect_model_output(content_to_inspect)
                 if not safety_res.passed:
                     logger.warning("Gateway safety guardrail intercepted proposal '%s': %s", proposal.proposal_id, safety_res.reason)
                     decision = GatewayDecision(
@@ -108,7 +109,10 @@ class AgentGateway:
                         safety_guardrail_passed=False,
                         requires_human_approval=False,
                         action_record_id=action_record_id,
-                        details={"detected_threats": safety_res.detected_threats}
+                        details={
+                            "detected_threats": safety_res.detected_threats,
+                            "guardrail_layer": safety_res.guardrail_layer
+                        }
                     )
                     self._record_in_memory(proposal, decision)
                     return decision

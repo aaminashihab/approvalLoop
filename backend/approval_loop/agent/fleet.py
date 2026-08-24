@@ -106,17 +106,17 @@ class FinanceAgent(BaseFleetAgent):
         """
         Reasons over the financial situation and emits a structured proposal.
         """
-        # Guardrail prompt inspection (Deterministic Model Safety Guardrail)
-        safety = self.guardrail.inspect_prompt(reason)
-        if not safety.passed:
-            logger.warning("FinanceAgent prompt rejected by safety guardrail: %s", safety.reason)
+        # 1. Model Armor Pre-LLM Prompt Inspection
+        safety_prompt = self.guardrail.inspect_prompt(reason)
+        if not safety_prompt.passed:
+            logger.warning("FinanceAgent prompt rejected by Model Armor guardrail: %s", safety_prompt.reason)
 
         proposal_id = f"prop_{uuid.uuid4().hex[:10]}"
         workflow_id = f"wf_{uuid.uuid4().hex[:10]}"
         justification = f"Finance assessment for refund {refund_id}: {reason}."
         raw_reasoning = "Evaluated transactional logs and confirmed refund eligibility."
 
-        if self.client:
+        if self.client and safety_prompt.passed:
             try:
                 system_prompt = (
                     "You are an Institutional Finance Agent in an enterprise fleet. "
@@ -133,6 +133,11 @@ class FinanceAgent(BaseFleetAgent):
                 parsed = json.loads(clean_json)
                 justification = parsed.get("justification", justification)
                 raw_reasoning = response.text
+
+                # 2. Model Armor Post-LLM Output Inspection
+                safety_out = self.guardrail.inspect_model_output(raw_reasoning, user_prompt=user_msg)
+                if not safety_out.passed:
+                    logger.warning("FinanceAgent Gemini output rejected by Model Armor guardrail: %s", safety_out.reason)
             except Exception as e:
                 logger.warning("Gemini generation in FinanceAgent fell back to deterministic template: %s", str(e))
 
@@ -182,6 +187,10 @@ class SupportAgent(BaseFleetAgent):
         reason: str = "Service outage SLA compensation credit",
         session_id: Optional[str] = None
     ) -> tuple[AgentActionProposal, AgentAuthContext]:
+        safety_prompt = self.guardrail.inspect_prompt(reason)
+        if not safety_prompt.passed:
+            logger.warning("SupportAgent prompt rejected by Model Armor guardrail: %s", safety_prompt.reason)
+
         proposal_id = f"prop_{uuid.uuid4().hex[:10]}"
         workflow_id = f"wf_{uuid.uuid4().hex[:10]}"
 
@@ -232,6 +241,10 @@ class SalesAgent(BaseFleetAgent):
         reason: str = "Multi-year commitment deal discount",
         session_id: Optional[str] = None
     ) -> tuple[AgentActionProposal, AgentAuthContext]:
+        safety_prompt = self.guardrail.inspect_prompt(reason)
+        if not safety_prompt.passed:
+            logger.warning("SalesAgent prompt rejected by Model Armor guardrail: %s", safety_prompt.reason)
+
         proposal_id = f"prop_{uuid.uuid4().hex[:10]}"
         workflow_id = f"wf_{uuid.uuid4().hex[:10]}"
 

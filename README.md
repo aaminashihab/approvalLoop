@@ -32,7 +32,7 @@ ApprovalLoop enforces an absolute separation of concerns:
 | :--- | :--- | :--- |
 | **Reasoning & Proposals** | **Gemini Agent Fleet** | Gemini 3.5 via Google GenAI SDK (`google-genai`) emits structured `AgentActionProposal` |
 | **Identity & Authentication** | **Agent Identity Layer** | HMAC-SHA256 & Google Cloud IAM OIDC zero-trust token verification with replay protection |
-| **Prompt & Payload Defense** | **Deterministic Model Safety Guardrail** | Model Armor-inspired deterministic safety filter intercepting prompt injections & secret leaks |
+| **Inline Safety Layer** | **Google Cloud Model Armor** | Official Google Cloud Model Armor API (`google-cloud-modelarmor`) inspecting pre-LLM prompts (`SanitizeUserPrompt`) and post-LLM responses (`SanitizeModelResponse`) |
 | **Parameter Integrity** | **4-Point Safety Validator** | Deterministic mathematical checks (exact Decimal precision, ID matching) |
 | **Authorization Policy** | **Policy Engine** | Versioned deterministic profiles (`finance-v3`, `support-v1`, `sales-v1`) |
 | **Execution Governance** | **Agent Gateway** | Emits `ALLOW`, `REQUIRE_HUMAN_APPROVAL`, or `DENY` decisions |
@@ -45,59 +45,33 @@ ApprovalLoop enforces an absolute separation of concerns:
 ## 3. Architecture & Control Plane Flow
 
 ```text
-                                  EVENT / TRIGGER (Cloud Scheduler)
-                                                 │
-                                                 ▼
-                                     AUTONOMOUS AGENT WAKE-UP
-                                                 │
-                                                 ▼
-                                            READ MEMORY
-                                       (Persistent Memory Bank)
-                                                 │
-                                                 ▼
-                                     GEMINI REASONING / PLANNING
-                                     (Google GenAI SDK - Gemini 3.5)
-                                                 │
-                                                 ▼
-                                     STRUCTURED ACTION PROPOSAL
-                                        (AgentActionProposal)
-                                                 │
-                                                 ▼
-                                          AGENT REGISTRY &
-                                           IDENTITY AUTH
-                                     (HMAC / GCP OIDC Verification)
-                                                 │
-                                                 ▼
-                                           AGENT GATEWAY
-                                           (ApprovalLoop)
-                                                 │
-                        ┌────────────────────────┼────────────────────────┐
-                        ▼                        ▼                        ▼
-           Deterministic Model Safety         Policy                Deterministic
-                   Guardrail                  Engine                  Validator
-                (Domain/Limits)           (Facts/Types)
-                        │                        │                        │
-                        └────────────────────────┼────────────────────────┘
-                                                 │
-                                                 ▼
-                                       GATEWAY DECISION
-                                                 │
-                        ┌────────────────────────┼────────────────────────┐
-                        ▼                        ▼                        ▼
-                      ALLOW            REQUIRE_HUMAN_APPROVAL           DENY
-                        │                        │                        │
-                 Auto Execution           Workflow Paused           Blocked & Audited
-                        │                        │
-                        │                  Human Decision
-                        │                 (Approve/Reject)
-                        │                        │
-                        └────────────────────────┼────────────────────────┘
-                                                 │ Resumed
-                                                 ▼
-                                       ASYNC RUNTIME / WORKER
-                                    (Firestore Leased Claims)
-                                                 │
-                                                 ▼
+                                              AGENT
+                                                │
+                                                ▼
+                                    GOOGLE CLOUD MODEL ARMOR
+                               (Pre-LLM: SanitizeUserPrompt API)
+                                                │
+                                                ▼
+                                             GEMINI
+                                 (Google GenAI SDK - Gemini 3.5)
+                                                │
+                                                ▼
+                                    GOOGLE CLOUD MODEL ARMOR
+                              (Post-LLM: SanitizeModelResponse API)
+                                                │
+                                                ▼
+                                          AGENT GATEWAY
+                                      (ApprovalLoop Control Plane)
+                                                │
+                                                ▼
+                                          POLICY ENGINE
+                               (Deterministic Profiles: finance-v3)
+                                                │
+                                                ▼
+                                          ASYNC RUNTIME
+                                    (Leased Async Execution)
+                                                │
+                                                ▼
                                      TOOL / ENTERPRISE ACTION
                                                  │
                                                  ▼
