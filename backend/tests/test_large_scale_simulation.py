@@ -124,6 +124,13 @@ def test_1000_reports_deterministic_scale_simulation():
 
         repo.save_report(r)
 
+    # Refresh fresh pending reports' timestamp right before run_tick to eliminate wall-clock setup timing drift
+    tick_start = utc_now()
+    for idx in range(300):
+        rep = repo.get_report(f"EXP-{idx:04d}")
+        rep.submitted_at = tick_start
+        repo.save_report(rep)
+
     # Set callback for race condition reports (950..999)
     def _race_callback(envelope):
         rep_num = int(envelope.report_id.split("-")[1])

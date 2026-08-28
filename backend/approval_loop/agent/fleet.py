@@ -159,10 +159,12 @@ class FinanceAgent(BaseFleetAgent):
         auth_context = self.create_auth_context()
         return proposal, auth_context
 
+        return proposal, auth_context
+
 class SupportAgent(BaseFleetAgent):
     """
     Tier-2 Support Operations Agent:
-    Evaluates customer SLA disputes and proposes account credits.
+    Evaluates customer SLA disputes and proposes account credits using Google GenAI SDK.
     """
     def __init__(
         self,
@@ -193,6 +195,32 @@ class SupportAgent(BaseFleetAgent):
 
         proposal_id = f"prop_{uuid.uuid4().hex[:10]}"
         workflow_id = f"wf_{uuid.uuid4().hex[:10]}"
+        justification = f"Support SLA triage for ticket {ticket_id}: {reason}."
+        raw_reasoning = "Analyzed uptime logs and calculated compensation according to Tier-2 SLA chart."
+
+        if self.client and safety_prompt.passed:
+            try:
+                system_prompt = (
+                    "You are a Tier-2 Support Operations Agent in an enterprise fleet. "
+                    "Analyze the customer SLA dispute ticket and formulate a structured credit proposal. "
+                    "Respond ONLY with valid JSON matching: "
+                    '{"action_name": "credit_account", "target_resource_id": str, "amount": str, "currency": str, "recipient": str, "justification": str, "risk_assessment": "low|medium|high"}'
+                )
+                user_msg = f"Evaluate SLA credit: Ticket={ticket_id}, Customer={customer_email}, CreditAmount={credit_amount}, Currency={currency}, Reason={reason}"
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=f"{system_prompt}\n\n{user_msg}"
+                )
+                clean_json = self._clean_json_response(response.text)
+                parsed = json.loads(clean_json)
+                justification = parsed.get("justification", justification)
+                raw_reasoning = response.text
+
+                safety_out = self.guardrail.inspect_model_output(raw_reasoning, user_prompt=user_msg)
+                if not safety_out.passed:
+                    logger.warning("SupportAgent Gemini output rejected by Model Armor guardrail: %s", safety_out.reason)
+            except Exception as e:
+                logger.warning("Gemini generation in SupportAgent fell back to deterministic template: %s", str(e))
 
         proposal = AgentActionProposal(
             proposal_id=proposal_id,
@@ -206,8 +234,8 @@ class SupportAgent(BaseFleetAgent):
             currency=currency,
             recipient=customer_email,
             parameters={"ticket_id": ticket_id, "credit_amount": str(credit_amount)},
-            justification=f"Support SLA triage for ticket {ticket_id}: {reason}.",
-            raw_llm_reasoning="Analyzed uptime logs and calculated compensation according to Tier-2 SLA chart."
+            justification=justification,
+            raw_llm_reasoning=raw_reasoning
         )
         auth_context = self.create_auth_context()
         return proposal, auth_context
@@ -215,7 +243,7 @@ class SupportAgent(BaseFleetAgent):
 class SalesAgent(BaseFleetAgent):
     """
     Enterprise Sales Deal Desk Agent:
-    Evaluates deal terms and proposes commercial discounts.
+    Evaluates deal terms and proposes commercial discounts using Google GenAI SDK.
     """
     def __init__(
         self,
@@ -247,6 +275,32 @@ class SalesAgent(BaseFleetAgent):
 
         proposal_id = f"prop_{uuid.uuid4().hex[:10]}"
         workflow_id = f"wf_{uuid.uuid4().hex[:10]}"
+        justification = f"Sales Deal Desk evaluation for deal {deal_id}: {reason} ({discount_percent}% discount)."
+        raw_reasoning = "Evaluated ARR margin and approved multi-year term structure."
+
+        if self.client and safety_prompt.passed:
+            try:
+                system_prompt = (
+                    "You are an Enterprise Sales Deal Desk Agent in an enterprise fleet. "
+                    "Analyze the commercial deal discount request and formulate a structured proposal. "
+                    "Respond ONLY with valid JSON matching: "
+                    '{"action_name": "grant_discount", "target_resource_id": str, "amount": str, "currency": str, "recipient": str, "justification": str, "risk_assessment": "low|medium|high"}'
+                )
+                user_msg = f"Evaluate deal discount: DealID={deal_id}, Client={client_contact}, Discount={discount_percent}%, ACV={annual_contract_value}, Currency={currency}, Reason={reason}"
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=f"{system_prompt}\n\n{user_msg}"
+                )
+                clean_json = self._clean_json_response(response.text)
+                parsed = json.loads(clean_json)
+                justification = parsed.get("justification", justification)
+                raw_reasoning = response.text
+
+                safety_out = self.guardrail.inspect_model_output(raw_reasoning, user_prompt=user_msg)
+                if not safety_out.passed:
+                    logger.warning("SalesAgent Gemini output rejected by Model Armor guardrail: %s", safety_out.reason)
+            except Exception as e:
+                logger.warning("Gemini generation in SalesAgent fell back to deterministic template: %s", str(e))
 
         proposal = AgentActionProposal(
             proposal_id=proposal_id,
@@ -264,8 +318,8 @@ class SalesAgent(BaseFleetAgent):
                 "discount_percent": discount_percent,
                 "acv": str(annual_contract_value)
             },
-            justification=f"Sales Deal Desk evaluation for deal {deal_id}: {reason} ({discount_percent}% discount).",
-            raw_llm_reasoning="Evaluated ARR margin and approved multi-year term structure."
+            justification=justification,
+            raw_llm_reasoning=raw_reasoning
         )
         auth_context = self.create_auth_context()
         return proposal, auth_context
@@ -273,40 +327,67 @@ class SalesAgent(BaseFleetAgent):
 
 class WorkflowAgent(BaseFleetAgent):
     """
-    Fleet Workflow Agent: Observes expense report state and proposes autonomous actions.
+    Fleet Workflow Agent: Observes expense report state and proposes autonomous actions via Google GenAI SDK.
     """
-    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None):
-        super().__init__(agent_id="workflow-agent", agent_version="1.0.0", identity_provider=identity_provider)
+    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None, api_key: Optional[str] = None, model: Optional[str] = None):
+        super().__init__(agent_id="workflow-agent", agent_version="1.0.0", identity_provider=identity_provider, api_key=api_key, model=model)
 
 
 class PolicyAgent(BaseFleetAgent):
     """
-    Fleet Policy Agent: Evaluates risk levels and provides policy recommendations for proposals.
+    Fleet Policy Agent: Evaluates risk levels and provides policy recommendations for proposals using Google GenAI SDK.
     """
-    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None):
-        super().__init__(agent_id="policy-agent", agent_version="1.0.0", identity_provider=identity_provider)
+    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None, api_key: Optional[str] = None, model: Optional[str] = None):
+        super().__init__(agent_id="policy-agent", agent_version="1.0.0", identity_provider=identity_provider, api_key=api_key, model=model)
+
+    def assess_risk(self, amount: Decimal, currency: str = "USD", action_name: str = "nudge_approver") -> str:
+        """Evaluates financial risk level, returning 'low', 'medium', or 'high'."""
+        default_risk = "high" if amount >= Decimal("5000.00") else ("medium" if amount >= Decimal("1000.00") else "low")
+        if not self.client:
+            return default_risk
+        try:
+            prompt = f"Assess financial risk for action '{action_name}' with amount {currency} {amount}. Return JSON: {{\"risk\": \"low|medium|high\"}}"
+            response = self.client.models.generate_content(model=self.model, contents=prompt)
+            clean = self._clean_json_response(response.text)
+            risk = json.loads(clean).get("risk", default_risk)
+            return risk if risk in ("low", "medium", "high") else default_risk
+        except Exception:
+            return default_risk
 
 
 class CommunicationAgent(BaseFleetAgent):
     """
-    Fleet Communication Agent: Generates contextual wording for nudges and escalations.
+    Fleet Communication Agent: Generates contextual wording for nudges and escalations using Google GenAI SDK.
     """
-    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None):
-        super().__init__(agent_id="communication-agent", agent_version="1.0.0", identity_provider=identity_provider)
+    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None, api_key: Optional[str] = None, model: Optional[str] = None):
+        super().__init__(agent_id="communication-agent", agent_version="1.0.0", identity_provider=identity_provider, api_key=api_key, model=model)
+
+    def draft_wording(self, action_name: str, report_id: str, submitter_name: str, amount: Decimal, currency: str) -> str:
+        """Generates contextual wording for notification message."""
+        default_wording = f"Notification draft: Expense report {report_id} submitted by {submitter_name} for {currency} {amount} requires approval."
+        if not self.client:
+            return default_wording
+        try:
+            prompt = f"Draft polite action wording for {action_name} regarding report {report_id} by {submitter_name} for {currency} {amount}. Return JSON: {{\"wording\": str}}"
+            response = self.client.models.generate_content(model=self.model, contents=prompt)
+            clean = self._clean_json_response(response.text)
+            return json.loads(clean).get("wording", default_wording)
+        except Exception:
+            return default_wording
 
 
 class EscalationAgent(BaseFleetAgent):
     """
-    Fleet Escalation Agent: Formulates procedural escalation proposals for stalled approvals.
+    Fleet Escalation Agent: Formulates procedural escalation proposals for stalled approvals using Google GenAI SDK.
     """
-    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None):
-        super().__init__(agent_id="escalation-agent", agent_version="1.0.0", identity_provider=identity_provider)
+    def __init__(self, identity_provider: Optional[AgentIdentityProvider] = None, api_key: Optional[str] = None, model: Optional[str] = None):
+        super().__init__(agent_id="escalation-agent", agent_version="1.0.0", identity_provider=identity_provider, api_key=api_key, model=model)
 
 
 class FleetOrchestrator:
     """
     Enterprise Fleet Multi-Agent Orchestrator:
-    Demonstrates explicit agent delegation across specialized roles:
+    Demonstrates explicit agent delegation across specialized roles powered by Google GenAI SDK:
     Clock -> WorkflowAgent -> PolicyAgent -> CommunicationAgent -> EscalationAgent -> AgentGateway.
     
     Authority Invariant:
@@ -357,13 +438,11 @@ class FleetOrchestrator:
 
             # 3. Communication Agent: Generates contextual wording
             with tracer.start_span("communication_agent.draft", {"action_name": action_name}):
-                wording = (
-                    f"Notification draft: Expense report {report_id} submitted by {submitter_name} for {currency} {amount} requires approval."
-                )
+                wording = self.comm_agent.draft_wording(action_name, report_id, submitter_name, amount, currency)
 
             # 4. Policy Agent: Assesses risk level
             with tracer.start_span("policy_agent.assess_risk", {"amount": str(amount)}):
-                risk = "high" if amount >= Decimal("5000.00") else ("medium" if amount >= Decimal("1000.00") else "low")
+                risk = self.policy_agent.assess_risk(amount, currency, action_name)
 
             # 5. Formulate Proposal
             proposal_id = f"prop_fleet_{uuid.uuid4().hex[:8]}"

@@ -1,7 +1,7 @@
 import os
 from enum import Enum
 from typing import Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -35,6 +35,8 @@ ENV_THRESHOLDS: dict[AppEnvironment, ThresholdConfig] = {
 }
 
 class Settings(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     app_env: AppEnvironment = Field(
         default_factory=lambda: AppEnvironment(os.getenv("APP_ENV", "demo").lower())
     )

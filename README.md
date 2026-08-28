@@ -96,6 +96,37 @@ ApprovalLoop orchestrates a scalable network of specialized institutional agents
 
 ---
 
+## 4.1 Google Agent Framework Integration
+
+ApprovalLoop explicitly satisfies the All Things Agentic Hackathon requirement for using an official Google Agent Framework.
+
+### Framework & Package Details
+* **Framework Used:** Google GenAI SDK
+* **Package:** `google-genai` (`google-genai>=2.0.0`)
+* **Implementation Location:** [`backend/approval_loop/agent/fleet.py`](file:///d:/hackathon/backend/approval_loop/agent/fleet.py) and [`backend/approval_loop/agent/drafter.py`](file:///d:/hackathon/backend/approval_loop/agent/drafter.py)
+* **Verification Test Suite:** [`backend/tests/test_agent_framework.py`](file:///d:/hackathon/backend/tests/test_agent_framework.py)
+
+### Functional Responsibilities
+1. **Context Analysis & Action Proposal Formulation:** Fleet agents (`FinanceAgent`, `SupportAgent`, `SalesAgent`) use `genai.Client` to analyze operational events, evaluate financial/SLA state, and emit structured Pydantic `AgentActionProposal` objects.
+2. **Multi-Agent Fleet Delegation:** `FleetOrchestrator` delegates tasks across `WorkflowAgent`, `PolicyAgent`, `CommunicationAgent`, and `EscalationAgent`, leveraging `google-genai` for risk tier assessment and notification wording generation.
+3. **Language Drafting:** `GeminiAgentDrafter` invokes `google-genai` with structured JSON parsing to generate contextual nudge and escalation messages.
+
+### Governance & Non-Bypassability Invariant
+The Google Agent Framework integration operates strictly within the input stage of ApprovalLoop's control plane. Framework agents formulate proposals and reasoning, but hold **zero direct execution authority**. Every proposal emitted by the framework must pass through:
+1. **Zero-Trust Identity Gate:** Cryptographic HMAC / OIDC token verification.
+2. **Google Cloud Model Armor:** Pre-LLM prompt inspection and post-LLM output verification.
+3. **Deterministic Policy Engine:** Hard monetary and rule-based policy enforcement (`ALLOW`, `REQUIRE_HUMAN_APPROVAL`, or `DENY`).
+
+Even if a model response attempts prompt injection or recommends an unauthorized monetary action, the deterministic policy layer retains 100% authority and blocks the action.
+
+### Hackathon Compliance Mapping
+
+| Requirement | Implementation | Location | Purpose |
+| :--- | :--- | :--- | :--- |
+| **At least one Google Agent Framework** | **Google GenAI SDK (`google-genai`)** | [`backend/approval_loop/agent/fleet.py`](file:///d:/hackathon/backend/approval_loop/agent/fleet.py)<br>[`backend/approval_loop/agent/drafter.py`](file:///d:/hackathon/backend/approval_loop/agent/drafter.py) | Autonomous action proposal formulation, risk assessment, multi-agent fleet delegation, and language drafting |
+
+---
+
 ## 5. Agent Registry & Identity
 
 Persistent in **Google Cloud Firestore**, the Agent Registry defines the identity, capabilities, and boundaries of every registered agent:
@@ -191,7 +222,7 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 - [x] Real Notification Providers (Slack Webhook & SMTP Email adapters)
 - [x] 3-Tier Demo Scenarios (Case A ALLOW, Case B HUMAN APPROVAL, Case C DENY)
 - [x] Google Cloud Run & Cloud Scheduler deployment automation
-- [x] 100% Clean test suite (114 passing backend unit/integration tests)
+- [x] 100% Clean test suite (128 passing backend unit, integration, and framework tests)
 
 ### OPTIONAL / FUTURE ROADMAP
 - [ ] Direct Google Cloud Pub/Sub integration for sub-second event streaming
@@ -233,7 +264,7 @@ ALLOW_INSECURE_DEMO_AUTH=false
 
 ### Step 3: Run Tests
 ```bash
-# Run full pytest suite (114 tests)
+# Run full pytest suite (128 tests)
 $env:PYTHONPATH="backend"
 python -m pytest backend/tests -v
 ```

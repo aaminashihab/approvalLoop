@@ -2,11 +2,13 @@ import os
 import re
 import logging
 from typing import Optional, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 logger = logging.getLogger("approval_loop.guardrails")
 
 class ModelSafetyResult(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     passed: bool = True
     reason: str = "Input and output conform to model safety boundaries."
     detected_threats: list[str] = Field(default_factory=list)
