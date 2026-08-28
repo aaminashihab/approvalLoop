@@ -87,10 +87,20 @@ class ModelSafetyGuardrail:
 
         if self.enabled and self.model_armor_client is None:
             try:
-                from google.cloud import modelarmor_v1
-                from google.api_core.client_options import ClientOptions
-                client_opts = ClientOptions(api_endpoint=f"modelarmor.{self.location}.rep.googleapis.com")
-                self.model_armor_client = modelarmor_v1.ModelArmorClient(client_options=client_opts)
+                import google.auth
+                from google.auth.exceptions import DefaultCredentialsError
+                try:
+                    credentials, _ = google.auth.default()
+                except (DefaultCredentialsError, Exception):
+                    credentials = None
+
+                if credentials:
+                    from google.cloud import modelarmor_v1
+                    from google.api_core.client_options import ClientOptions
+                    client_opts = ClientOptions(api_endpoint=f"modelarmor.{self.location}.rep.googleapis.com")
+                    self.model_armor_client = modelarmor_v1.ModelArmorClient(credentials=credentials, client_options=client_opts)
+                else:
+                    self.model_armor_client = None
             except Exception as e:
                 logger.warning("Could not initialize Google Cloud ModelArmorClient: %s", str(e))
                 self.model_armor_client = None

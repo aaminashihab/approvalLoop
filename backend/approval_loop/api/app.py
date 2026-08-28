@@ -66,12 +66,12 @@ gateway = AgentGateway(
 runtime = AsyncAgentRuntime(gateway=gateway, memory_bank=memory_bank_service)
 
 # 5. Gemini Agent Fleet
-finance_agent = FinanceAgent(identity_provider=identity_provider, api_key=settings.gemini_api_key, model=settings.gemini_model)
-support_agent = SupportAgent(identity_provider=identity_provider, api_key=settings.gemini_api_key, model=settings.gemini_model)
-sales_agent = SalesAgent(identity_provider=identity_provider, api_key=settings.gemini_api_key, model=settings.gemini_model)
+finance_agent = FinanceAgent(identity_provider=identity_provider, api_key=settings.gemini_api_key, model=settings.gemini_model, guardrail=guardrail)
+support_agent = SupportAgent(identity_provider=identity_provider, api_key=settings.gemini_api_key, model=settings.gemini_model, guardrail=guardrail)
+sales_agent = SalesAgent(identity_provider=identity_provider, api_key=settings.gemini_api_key, model=settings.gemini_model, guardrail=guardrail)
 
 # 6. Core ApprovalEngine for autonomous background expense chasing
-drafter = GeminiAgentDrafter(api_key=settings.gemini_api_key, model=settings.gemini_model)
+drafter = GeminiAgentDrafter(api_key=settings.gemini_api_key, model=settings.gemini_model, guardrail=guardrail)
 validator = DeterministicValidator(registry=approver_registry)
 
 engine = ApprovalEngine(

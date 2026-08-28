@@ -84,14 +84,16 @@ class FinanceAgent(BaseFleetAgent):
         self,
         identity_provider: Optional[AgentIdentityProvider] = None,
         api_key: Optional[str] = None,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        guardrail: Optional[ModelSafetyGuardrail] = None
     ):
         super().__init__(
             agent_id="finance-agent",
             agent_version="1.2.0",
             identity_provider=identity_provider,
             api_key=api_key,
-            model=model
+            model=model,
+            guardrail=guardrail
         )
 
     def propose_refund(
@@ -170,14 +172,16 @@ class SupportAgent(BaseFleetAgent):
         self,
         identity_provider: Optional[AgentIdentityProvider] = None,
         api_key: Optional[str] = None,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        guardrail: Optional[ModelSafetyGuardrail] = None
     ):
         super().__init__(
             agent_id="support-agent",
             agent_version="1.1.0",
             identity_provider=identity_provider,
             api_key=api_key,
-            model=model
+            model=model,
+            guardrail=guardrail
         )
 
     def propose_credit(
@@ -249,14 +253,16 @@ class SalesAgent(BaseFleetAgent):
         self,
         identity_provider: Optional[AgentIdentityProvider] = None,
         api_key: Optional[str] = None,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        guardrail: Optional[ModelSafetyGuardrail] = None
     ):
         super().__init__(
             agent_id="sales-agent",
             agent_version="1.0.0",
             identity_provider=identity_provider,
             api_key=api_key,
-            model=model
+            model=model,
+            guardrail=guardrail
         )
 
     def propose_discount(
