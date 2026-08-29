@@ -1,0 +1,53 @@
+name: ApprovalLoop Cloud Run CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment target environment'
+        required: true
+        default: 'demo'
+        type: choice
+        options:
+          - demo
+          - production
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || 'approval-loop-hackathon' }}
+  REGION: ${{ secrets.GCP_REGION || 'us-central1' }}
+  SERVICE_NAME: approval-loop
+
+jobs:
+  deploy-cloud-run:
+    name: Deploy to Google Cloud Run
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        if: "${{ secrets.GCP_SA_KEY != '' }}"
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        if: "${{ secrets.GCP_SA_KEY != '' }}"
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for Google Artifact Registry
+        if: "${{ secrets.GCP_SA_KEY != '' }}"
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and Push Container Image
+        if: "${{ secrets.GCP_SA_KEY != '' }}"
+        run: |
+          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          docker build -t $IMAGE_TAG .
+          docker push $IMAGE_TAG
+          
+          gcloud run deploy ${{ env.SERVICE_NAME }}             --image $IMAGE_TAG             --region ${{ env.REGION }}             --platform managed             --allow-unauthenticated             --set-env-vars "APP_ENV=${{ inputs.environment }},GEMINI_MODEL=gemini-3.7-flash,GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}"
