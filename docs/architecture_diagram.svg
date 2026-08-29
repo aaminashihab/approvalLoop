@@ -1,877 +1,472 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1340" width="100%" height="100%" style="background-color: #0b1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1350" width="100%" height="100%" style="background:#090d16; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
   <defs>
-    <!-- Gradients -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <!-- Background Gradients -->
+    <linearGradient id="bgGlow" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0b1120"/>
-      <stop offset="50%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#090d16"/>
+      <stop offset="50%" stop-color="#090d16"/>
+      <stop offset="100%" stop-color="#030712"/>
     </linearGradient>
-    
-    <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+
+    <!-- Zone Gradients -->
+    <linearGradient id="untrustedLayerBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="governanceLayerBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14532d" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="executionLayerBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c4a6e" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#1e293b"/>
       <stop offset="100%" stop-color="#0f172a"/>
     </linearGradient>
 
-    <linearGradient id="engineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1e1b4b"/>
-      <stop offset="100%" stop-color="#0f172a"/>
-    </linearGradient>
+    <!-- Arrow Markers -->
+    <marker id="arrowCyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrowPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#c084fc"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#34d399"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#fbbf24"/>
+    </marker>
+    <marker id="arrowRose" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#f87171"/>
+    </marker>
 
-    <linearGradient id="geminiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4c1d95"/>
-      <stop offset="100%" stop-color="#31104b"/>
-    </linearGradient>
-
-    <linearGradient id="validatorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#064e3b"/>
-      <stop offset="100%" stop-color="#022c22"/>
-    </linearGradient>
-
-    <linearGradient id="policyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1e3a8a"/>
-      <stop offset="100%" stop-color="#172554"/>
-    </linearGradient>
-
-    <linearGradient id="blockedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7f1d1d"/>
-      <stop offset="100%" stop-color="#450a0a"/>
-    </linearGradient>
-
-    <linearGradient id="bannerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#1e1b4b"/>
-      <stop offset="30%" stop-color="#312e81"/>
-      <stop offset="70%" stop-color="#312e81"/>
-      <stop offset="100%" stop-color="#1e1b4b"/>
-    </linearGradient>
-
-    <!-- Filters & Drop Shadows -->
-    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="125%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.5"/>
+    <!-- Drop Shadows -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
     </filter>
-
-    <filter id="glowGreen" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#10b981" flood-opacity="0.4"/>
+    <filter id="glowCyan" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#38bdf8" flood-opacity="0.4"/>
     </filter>
-
     <filter id="glowPurple" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#a855f7" flood-opacity="0.4"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#c084fc" flood-opacity="0.4"/>
     </filter>
-
-    <filter id="glowRed" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ef4444" flood-opacity="0.4"/>
-    </filter>
-
-    <!-- Markers -->
-    <marker id="arrowBlue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8"/>
-    </marker>
-    <marker id="arrowGreen" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#34d399"/>
-    </marker>
-    <marker id="arrowPurple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#c084fc"/>
-    </marker>
-    <marker id="arrowRed" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#f87171"/>
-    </marker>
-    <marker id="arrowAmber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#fbbf24"/>
-    </marker>
-    <marker id="arrowGray" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#94a3b8"/>
-    </marker>
   </defs>
 
   <!-- Background Base -->
-  <rect width="2000" height="1340" fill="url(#bgGrad)"/>
-  
-  <!-- Subtle Grid Texture -->
-  <g opacity="0.05">
-    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-width="1"/>
-    </pattern>
-    <rect width="2000" height="1340" fill="url(#grid)"/>
-  </g>
+  <rect width="2000" height="1350" fill="url(#bgGlow)"/>
 
-  <!-- ========================================================================= -->
-  <!-- HEADER SECTION -->
-  <!-- ========================================================================= -->
-  <g transform="translate(40, 25)">
-    <!-- Title and Subtitle -->
-    <text x="0" y="32" font-size="28" font-weight="800" fill="#f8fafc" letter-spacing="-0.5">
-      ApprovalLoop — Bounded Autonomous Approval Operations Architecture
-    </text>
-    <text x="0" y="60" font-size="18" font-weight="600" fill="#38bdf8" letter-spacing="0.5">
-      “LLM proposes. Code disposes.”
-    </text>
-    <text x="325" y="60" font-size="14" font-weight="400" fill="#94a3b8">
-      | Bounded unprompted orchestration • 4-Point deterministic safety • Transactional outbox • Progressive skill discovery
-    </text>
+  <!-- Grid Pattern Overlay -->
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5" stroke-opacity="0.3"/>
+  </pattern>
+  <rect width="2000" height="1350" fill="url(#grid)"/>
 
-    <!-- Top Badge Row -->
-    <g transform="translate(1330, 8)">
-      <rect x="0" y="0" width="130" height="30" rx="15" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-      <text x="65" y="19" font-size="12" font-weight="600" fill="#38bdf8" text-anchor="middle">Google Cloud Run</text>
-
-      <rect x="140" y="0" width="130" height="30" rx="15" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-      <text x="205" y="19" font-size="12" font-weight="600" fill="#c084fc" text-anchor="middle">Gemini 3.7 Flash</text>
-
-      <rect x="280" y="0" width="130" height="30" rx="15" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-      <text x="345" y="19" font-size="12" font-weight="600" fill="#34d399" text-anchor="middle">Cloud Firestore</text>
-
-      <rect x="420" y="0" width="160" height="30" rx="15" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-      <text x="500" y="19" font-size="12" font-weight="600" fill="#fbbf24" text-anchor="middle">OpenTelemetry Traced</text>
-    </g>
-  </g>
-
-  <!-- Horizontal divider -->
-  <line x1="40" y1="100" x2="1960" y2="100" stroke="#334155" stroke-width="1" stroke-dasharray="4,4"/>
-
-  <!-- ========================================================================= -->
-  <!-- LAYER A: GOOGLE CLOUD & EXTERNAL RUNTIME / API LAYER (LEFT COLUMN) -->
-  <!-- ========================================================================= -->
-  <g transform="translate(40, 115)">
-    <!-- Container Box -->
-    <rect width="360" height="1060" rx="12" fill="url(#cloudGrad)" stroke="#334155" stroke-width="1.5" filter="url(#dropShadow)"/>
+  <!-- HEADER & INVARIANT BANNER -->
+  <g transform="translate(60, 40)">
+    <text x="0" y="32" font-size="28" font-weight="900" fill="#f8fafc" letter-spacing="-0.5">ApprovalLoop — Governed Autonomous Agent Architecture</text>
     
-    <!-- Section Header -->
-    <rect width="360" height="42" rx="12" fill="#1e293b"/>
-    <rect y="30" width="360" height="12" fill="#1e293b"/>
-    <text x="16" y="26" font-size="14" font-weight="700" fill="#f8fafc" letter-spacing="0.5">LAYER A — RUNTIME &amp; API INGRESS</text>
-    <text x="344" y="26" font-size="11" font-weight="500" fill="#94a3b8" text-anchor="end">GCP Infrastructure</text>
-
-    <!-- Component 1: Google Cloud Scheduler -->
-    <g transform="translate(16, 56)">
-      <rect width="328" height="96" rx="8" fill="#0f172a" stroke="#3b82f6" stroke-width="1.5"/>
-      <rect x="8" y="8" width="22" height="22" rx="4" fill="#1d4ed8"/>
-      <text x="19" y="24" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">⏱</text>
-      <text x="36" y="23" font-size="13" font-weight="700" fill="#f8fafc">Google Cloud Scheduler</text>
-      <text x="320" y="23" font-size="11" font-weight="600" fill="#38bdf8" text-anchor="end">Autonomous Trigger</text>
-      
-      <rect x="12" y="38" width="304" height="24" rx="4" fill="#1e293b" stroke="#475569" stroke-width="1"/>
-      <text x="20" y="54" font-size="11" font-family="monospace" fill="#38bdf8">Cron: */1 * * * *</text>
-      <text x="308" y="54" font-size="10" font-family="monospace" fill="#94a3b8" text-anchor="end">Unprompted Wake</text>
-
-      <text x="12" y="80" font-size="10" fill="#94a3b8">Payload: POST /api/tick</text>
-      <text x="316" y="80" font-size="10" font-weight="600" fill="#fbbf24" text-anchor="end">Header: X-API-Key</text>
+    <g transform="translate(0, 48)">
+      <rect width="860" height="34" rx="8" fill="#1e1b4b" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
+      <circle cx="20" cy="17" r="5" fill="#38bdf8"/>
+      <text x="36" y="22" font-size="14" font-weight="800" fill="#a5b4fc" letter-spacing="0.5">CORE INVARIANT: <tspan fill="#38bdf8">AI proposes.</tspan> <tspan fill="#34d399">Deterministic policy decides.</tspan> <tspan fill="#fbbf24">Infrastructure executes.</tspan></text>
     </g>
 
-    <!-- Arrow from Scheduler to Ingress -->
-    <path d="M 180 152 L 180 178" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)" stroke-dasharray="3,3"/>
-    <rect x="110" y="156" width="140" height="18" rx="4" fill="#0f172a" stroke="#3b82f6" stroke-width="1"/>
-    <text x="180" y="169" font-size="10" font-weight="600" fill="#38bdf8" text-anchor="middle">HTTP POST /api/tick</text>
+    <g transform="translate(1320, 10)">
+      <rect x="0" y="0" width="160" height="30" rx="6" fill="#1e293b" stroke="#334155"/>
+      <text x="80" y="19" font-size="11" font-weight="700" fill="#38bdf8" text-anchor="middle">Google Cloud Run</text>
 
-    <!-- Component 2: Google Cloud Run & FastAPI Boundary -->
-    <g transform="translate(16, 184)">
-      <rect width="328" height="520" rx="8" fill="#0f172a" stroke="#475569" stroke-width="1.5"/>
-      <rect width="328" height="34" rx="8" fill="#1e293b"/>
-      <rect y="24" width="328" height="10" fill="#1e293b"/>
-      
-      <text x="12" y="22" font-size="13" font-weight="700" fill="#f8fafc">Google Cloud Run — FastAPI Backend</text>
-      <text x="316" y="22" font-size="10" font-family="monospace" fill="#38bdf8" text-anchor="end">backend/approval_loop/</text>
+      <rect x="170" y="0" width="160" height="30" rx="6" fill="#1e293b" stroke="#334155"/>
+      <text x="250" y="19" font-size="11" font-weight="700" fill="#c084fc" text-anchor="middle">Gemini 3.7 Flash</text>
 
-      <!-- Auth Guard Sub-box -->
-      <g transform="translate(10, 42)">
-        <rect width="308" height="52" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="1"/>
-        <text x="10" y="20" font-size="11" font-weight="700" fill="#c7d2fe">Scheduler API Key Auth Guard</text>
-        <text x="298" y="20" font-size="10" font-family="monospace" fill="#a5b4fc" text-anchor="end">api/auth.py</text>
-        <text x="10" y="38" font-size="10" fill="#94a3b8">Validates Header: <tspan fill="#fbbf24" font-family="monospace">X-API-Key</tspan> | Rejects 401 Unauthorized</text>
-      </g>
-
-      <!-- API Routes Group -->
-      <g transform="translate(10, 104)">
-        <rect width="308" height="402" rx="6" fill="#090d16" stroke="#334155" stroke-width="1"/>
-        <text x="10" y="20" font-size="11" font-weight="700" fill="#cbd5e1">FastAPI Endpoint Matrix</text>
-        <text x="298" y="20" font-size="10" font-family="monospace" fill="#64748b" text-anchor="end">api/routes.py</text>
-
-        <!-- Autonomous Route (Emphasized) -->
-        <rect x="8" y="32" width="292" height="46" rx="4" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5"/>
-        <rect x="14" y="38" width="48" height="18" rx="3" fill="#0284c7"/>
-        <text x="38" y="51" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">POST</text>
-        <text x="68" y="51" font-size="12" font-weight="700" fill="#38bdf8">/api/tick</text>
-        <text x="292" y="51" font-size="10" font-weight="600" fill="#34d399" text-anchor="end">⚡ Autonomous Loop</text>
-        <text x="14" y="70" font-size="9.5" fill="#94a3b8">Triggers full Observe ➔ Decide ➔ Act ➔ Transition cycle</text>
-
-        <!-- Read APIs -->
-        <text x="10" y="96" font-size="10" font-weight="700" fill="#94a3b8">OBSERVABILITY &amp; READ ROUTES (Dashboard Polling)</text>
-        
-        <g transform="translate(8, 104)">
-          <rect width="292" height="22" rx="3" fill="#1e293b"/>
-          <text x="8" y="15" font-size="9.5" font-weight="700" fill="#10b981">GET</text>
-          <text x="36" y="15" font-size="10" font-family="monospace" fill="#f1f5f9">/api/reports</text>
-          <text x="284" y="15" font-size="9" fill="#94a3b8" text-anchor="end">Expense reports state</text>
-        </g>
-
-        <g transform="translate(8, 130)">
-          <rect width="292" height="22" rx="3" fill="#1e293b"/>
-          <text x="8" y="15" font-size="9.5" font-weight="700" fill="#10b981">GET</text>
-          <text x="36" y="15" font-size="10" font-family="monospace" fill="#f1f5f9">/api/actions</text>
-          <text x="284" y="15" font-size="9" fill="#94a3b8" text-anchor="end">Audit &amp; action records</text>
-        </g>
-
-        <g transform="translate(8, 156)">
-          <rect width="292" height="22" rx="3" fill="#1e293b"/>
-          <text x="8" y="15" font-size="9.5" font-weight="700" fill="#10b981">GET</text>
-          <text x="36" y="15" font-size="10" font-family="monospace" fill="#f1f5f9">/api/metrics</text>
-          <text x="284" y="15" font-size="9" fill="#94a3b8" text-anchor="end">Live autonomy counters</text>
-        </g>
-
-        <g transform="translate(8, 182)">
-          <rect width="292" height="22" rx="3" fill="#1e293b"/>
-          <text x="8" y="15" font-size="9.5" font-weight="700" fill="#10b981">GET</text>
-          <text x="36" y="15" font-size="10" font-family="monospace" fill="#f1f5f9">/api/traces</text>
-          <text x="284" y="15" font-size="9" fill="#94a3b8" text-anchor="end">OTel span hierarchy</text>
-        </g>
-
-        <g transform="translate(8, 208)">
-          <rect width="292" height="22" rx="3" fill="#1e293b"/>
-          <text x="8" y="15" font-size="9.5" font-weight="700" fill="#10b981">GET</text>
-          <text x="36" y="15" font-size="10" font-family="monospace" fill="#f1f5f9">/api/agbom</text>
-          <text x="284" y="15" font-size="9" fill="#94a3b8" text-anchor="end">Agent Bill of Materials</text>
-        </g>
-
-        <!-- Demo & Simulation APIs -->
-        <text x="10" y="248" font-size="10" font-weight="700" fill="#94a3b8">DEMO &amp; VERIFICATION CONTROLS</text>
-
-        <g transform="translate(8, 256)">
-          <rect width="292" height="20" rx="3" fill="#1e293b"/>
-          <text x="8" y="14" font-size="9" font-weight="700" fill="#38bdf8">POST</text>
-          <text x="42" y="14" font-size="9.5" font-family="monospace" fill="#cbd5e1">/api/seed</text>
-          <text x="284" y="14" font-size="8.5" fill="#94a3b8" text-anchor="end">Seed scenario reports</text>
-        </g>
-
-        <g transform="translate(8, 280)">
-          <rect width="292" height="20" rx="3" fill="#1e293b"/>
-          <text x="8" y="14" font-size="9" font-weight="700" fill="#38bdf8">POST</text>
-          <text x="42" y="14" font-size="9.5" font-family="monospace" fill="#cbd5e1">/api/reports</text>
-          <text x="284" y="14" font-size="8.5" fill="#94a3b8" text-anchor="end">Create report instance</text>
-        </g>
-
-        <g transform="translate(8, 304)">
-          <rect width="292" height="20" rx="3" fill="#1e293b"/>
-          <text x="8" y="14" font-size="9" font-weight="700" fill="#38bdf8">POST</text>
-          <text x="42" y="14" font-size="9.5" font-family="monospace" fill="#cbd5e1">/api/reports/{id}/resolve</text>
-          <text x="284" y="14" font-size="8.5" fill="#94a3b8" text-anchor="end">Human signoff</text>
-        </g>
-
-        <g transform="translate(8, 328)">
-          <rect width="292" height="20" rx="3" fill="#1e293b"/>
-          <text x="8" y="14" font-size="9" font-weight="700" fill="#38bdf8">POST</text>
-          <text x="42" y="14" font-size="9.5" font-family="monospace" fill="#cbd5e1">/api/demo/advance-time</text>
-          <text x="284" y="14" font-size="8.5" fill="#94a3b8" text-anchor="end">Simulate stale clock</text>
-        </g>
-
-        <g transform="translate(8, 352)">
-          <rect width="292" height="20" rx="3" fill="#1e293b"/>
-          <text x="8" y="14" font-size="9" font-weight="700" fill="#f87171">POST</text>
-          <text x="42" y="14" font-size="9.5" font-family="monospace" fill="#fca5a5">/api/simulate-adversarial</text>
-          <text x="284" y="14" font-size="8.5" fill="#f87171" text-anchor="end">Prompt-injection test</text>
-        </g>
-
-        <g transform="translate(8, 376)">
-          <rect width="292" height="20" rx="3" fill="#1e293b"/>
-          <text x="8" y="14" font-size="9" font-weight="700" fill="#fbbf24">POST</text>
-          <text x="42" y="14" font-size="9.5" font-family="monospace" fill="#fde68a">/api/simulate-race</text>
-          <text x="284" y="14" font-size="8.5" fill="#fbbf24" text-anchor="end">Agent vs Human race</text>
-        </g>
-      </g>
+      <rect x="340" y="0" width="180" height="30" rx="6" fill="#1e293b" stroke="#334155"/>
+      <text x="430" y="19" font-size="11" font-weight="700" fill="#34d399" text-anchor="middle">Cloud Firestore (State)</text>
     </g>
+  </g>
 
-    <!-- Component 3: Storage Layer (Firestore & In-Memory) -->
-    <g transform="translate(16, 718)">
-      <rect width="328" height="326" rx="8" fill="#0f172a" stroke="#0ea5e9" stroke-width="1.5"/>
-      <rect width="328" height="32" rx="8" fill="#1e293b"/>
-      <rect y="22" width="328" height="10" fill="#1e293b"/>
-      <text x="12" y="21" font-size="13" font-weight="700" fill="#f8fafc">Storage Architectures</text>
-      <text x="316" y="21" font-size="10" font-family="monospace" fill="#38bdf8" text-anchor="end">storage/</text>
+  <!-- 3 HIGH-LEVEL SECURITY BOUNDARY CONTAINERS -->
+  <g transform="translate(50, 150)">
+    <rect width="600" height="880" rx="16" fill="url(#untrustedLayerBg)" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="6,4"/>
+    <rect x="20" y="16" width="310" height="26" rx="6" fill="#4c1d95" stroke="#a78bfa" stroke-width="1"/>
+    <text x="32" y="34" font-size="12" font-weight="800" fill="#ede9fe">1. AI / UNTRUSTED PROPOSAL LAYER</text>
+    <text x="580" y="34" font-size="10.5" font-weight="600" fill="#c4b5fd" text-anchor="end">Zero Direct Tool / DB Authority</text>
+  </g>
 
-      <!-- Production Firestore -->
-      <g transform="translate(10, 40)">
-        <rect width="308" height="170" rx="6" fill="#0c4a6e" fill-opacity="0.3" stroke="#0284c7" stroke-width="1.2"/>
-        <text x="10" y="20" font-size="12" font-weight="700" fill="#38bdf8">Google Cloud Firestore</text>
-        <text x="298" y="20" font-size="10" font-weight="600" fill="#34d399" text-anchor="end">PRODUCTION</text>
-        <text x="10" y="36" font-size="10" font-family="monospace" fill="#94a3b8">FirestoreRepository (storage/firestore_repo.py)</text>
+  <g transform="translate(680, 150)">
+    <rect width="660" height="880" rx="16" fill="url(#governanceLayerBg)" stroke="#10b981" stroke-width="2"/>
+    <rect x="20" y="16" width="340" height="26" rx="6" fill="#064e3b" stroke="#34d399" stroke-width="1"/>
+    <text x="32" y="34" font-size="12" font-weight="800" fill="#d1fae5">2. GOVERNANCE &amp; ENFORCEMENT LAYER</text>
+    <text x="640" y="34" font-size="10.5" font-weight="700" fill="#6ee7b7" text-anchor="end">Deterministic Mathematical Gates</text>
+  </g>
 
-        <g transform="translate(8, 46)">
-          <rect width="292" height="24" rx="4" fill="#0f172a" stroke="#0369a1" stroke-width="1"/>
-          <circle cx="16" cy="12" r="4" fill="#38bdf8"/>
-          <text x="26" y="16" font-size="10" font-family="monospace" fill="#f8fafc">expense_reports</text>
-          <text x="284" y="16" font-size="9" fill="#94a3b8" text-anchor="end">Reports, Amounts, Status</text>
-        </g>
+  <g transform="translate(1370, 150)">
+    <rect width="580" height="880" rx="16" fill="url(#executionLayerBg)" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="6,4"/>
+    <rect x="20" y="16" width="320" height="26" rx="6" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1"/>
+    <text x="32" y="34" font-size="12" font-weight="800" fill="#e0f2fe">3. TRUSTED EXECUTION LAYER</text>
+    <text x="560" y="34" font-size="10.5" font-weight="600" fill="#7dd3fc" text-anchor="end">Leased Runtime &amp; Side-Effects</text>
+  </g>
 
-        <g transform="translate(8, 76)">
-          <rect width="292" height="24" rx="4" fill="#0f172a" stroke="#0369a1" stroke-width="1"/>
-          <circle cx="16" cy="12" r="4" fill="#38bdf8"/>
-          <text x="26" y="16" font-size="10" font-family="monospace" fill="#f8fafc">approval_actions</text>
-          <text x="284" y="16" font-size="9" fill="#94a3b8" text-anchor="end">Audit Records &amp; State Logs</text>
-        </g>
+  <!-- ACTORS & EVENTS -->
+  <g transform="translate(80, 210)" filter="url(#shadow)">
+    <rect width="240" height="150" rx="12" fill="url(#cardGrad)" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 0 L 240 0 L 240 32 L 0 32 Z" fill="#1e293b" clip-path="inset(0 0 0 0 round 12px 12px 0 0)"/>
+    <text x="14" y="21" font-size="12" font-weight="800" fill="#f8fafc">Business Triggers &amp; Events</text>
+    
+    <g transform="translate(14, 46)">
+      <circle cx="6" cy="10" r="3" fill="#38bdf8"/>
+      <text x="18" y="14" font-size="11" fill="#cbd5e1">Cloud Scheduler (1-min tick)</text>
+      
+      <circle cx="6" cy="34" r="3" fill="#38bdf8"/>
+      <text x="18" y="38" font-size="11" fill="#cbd5e1">Stale Expense / Dispute Event</text>
 
-        <g transform="translate(8, 106)">
-          <rect width="292" height="24" rx="4" fill="#0f172a" stroke="#0369a1" stroke-width="1"/>
-          <circle cx="16" cy="12" r="4" fill="#f59e0b"/>
-          <text x="26" y="16" font-size="10" font-family="monospace" fill="#fbbf24">action_claims</text>
-          <text x="284" y="16" font-size="9" fill="#fbbf24" text-anchor="end">Atomic Outbox Idempotency</text>
-        </g>
+      <circle cx="6" cy="58" r="3" fill="#38bdf8"/>
+      <text x="18" y="62" font-size="11" fill="#cbd5e1">Operator API / Web Ingress</text>
 
-        <text x="10" y="152" font-size="9.5" fill="#7dd3fc">• ACID Transactions for Outbox Claim &amp; State Guard</text>
-      </g>
+      <circle cx="6" cy="82" r="3" fill="#38bdf8"/>
+      <text x="18" y="86" font-size="11" fill="#cbd5e1">Persistent State Context Read</text>
+    </g>
+  </g>
 
-      <!-- Local InMemoryRepository -->
-      <g transform="translate(10, 220)">
-        <rect width="308" height="92" rx="6" fill="#1e293b" stroke="#475569" stroke-width="1"/>
-        <text x="10" y="20" font-size="12" font-weight="700" fill="#cbd5e1">InMemoryRepository</text>
-        <text x="298" y="20" font-size="10" font-weight="600" fill="#a3a3a3" text-anchor="end">TEST / DEMO ONLY</text>
-        <text x="10" y="36" font-size="10" font-family="monospace" fill="#94a3b8">storage/memory_repo.py</text>
-        <text x="10" y="56" font-size="9.5" fill="#94a3b8">• Thread-safe in-memory dictionaries with transaction locks</text>
-        <text x="10" y="74" font-size="9.5" fill="#94a3b8">• Zero-cloud setup for unit test suites &amp; deterministic evals</text>
+  <!-- GEMINI AGENT FLEET -->
+  <g transform="translate(360, 210)" filter="url(#shadow)">
+    <rect width="260" height="240" rx="12" fill="url(#cardGrad)" stroke="#8b5cf6" stroke-width="1.5"/>
+    <path d="M 0 0 L 260 0 L 260 32 L 0 32 Z" fill="#4c1d95" clip-path="inset(0 0 0 0 round 12px 12px 0 0)"/>
+    <text x="14" y="21" font-size="12" font-weight="800" fill="#ede9fe">Gemini Agent Fleet</text>
+    
+    <g transform="translate(12, 46)">
+      <rect x="0" y="0" width="236" height="52" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="1"/>
+      <text x="10" y="20" font-size="11" font-weight="700" fill="#c7d2fe">FinanceAgent (v1.2.0)</text>
+      <text x="10" y="38" font-size="9.5" fill="#94a3b8">Refunds, Invoices, Stalled Expenses</text>
+
+      <rect x="0" y="60" width="236" height="52" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="1"/>
+      <text x="10" y="20" font-size="11" font-weight="700" fill="#c7d2fe">SupportAgent (v1.1.0)</text>
+      <text x="10" y="38" font-size="9.5" fill="#94a3b8">SLA Credits, Ticket Escalations</text>
+
+      <rect x="0" y="120" width="236" height="52" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="1"/>
+      <text x="10" y="20" font-size="11" font-weight="700" fill="#c7d2fe">SalesAgent (v1.0.0)</text>
+      <text x="10" y="38" font-size="9.5" fill="#94a3b8">Custom Terms, Commercial Discounts</text>
+    </g>
+  </g>
+
+  <!-- MODEL ARMOR PRE-LLM -->
+  <g transform="translate(140, 480)" filter="url(#shadow)">
+    <rect width="480" height="90" rx="10" fill="#0f172a" stroke="#f59e0b" stroke-width="1.5"/>
+    <rect x="0" y="0" width="480" height="24" rx="10" fill="#451a03" clip-path="inset(0 0 0 0 round 10px 10px 0 0)"/>
+    <text x="12" y="16" font-size="11" font-weight="800" fill="#fef3c7">GOOGLE CLOUD MODEL ARMOR — PRE-LLM INSPECTION (SanitizeUserPrompt)</text>
+    <g transform="translate(12, 38)">
+      <text x="0" y="14" font-size="10.5" fill="#fde68a">• Prompt Injection Defense (&quot;ignore prior instructions&quot;, DAN mode, system bypass)</text>
+      <text x="0" y="32" font-size="10.5" fill="#fde68a">• Malicious Command Scanner (eval, drop table, rm -rf, bash scripts)</text>
+    </g>
+  </g>
+
+  <!-- GEMINI 3.7 FLASH REASONING ENGINE -->
+  <g transform="translate(140, 600)" filter="url(#shadow)">
+    <rect width="480" height="150" rx="12" fill="url(#cardGrad)" stroke="#c084fc" stroke-width="2" filter="url(#glowPurple)"/>
+    <path d="M 0 0 L 480 0 L 480 32 L 0 32 Z" fill="#581c87" clip-path="inset(0 0 0 0 round 12px 12px 0 0)"/>
+    <text x="14" y="21" font-size="13" font-weight="800" fill="#faf5ff">Google GenAI SDK — Gemini 3.7 Flash (`google-genai`)</text>
+    
+    <g transform="translate(14, 46)">
+      <text x="0" y="16" font-size="11.5" font-weight="700" fill="#e9d5ff">Cognitive Reasoning &amp; Context Evaluation:</text>
+      <text x="12" y="36" font-size="10.5" fill="#cbd5e1">1. Evaluates situational context, stale duration, customer SLA status</text>
+      <text x="12" y="54" font-size="10.5" fill="#cbd5e1">2. Formulates structured justification and risk tier classification</text>
+      <text x="12" y="72" font-size="10.5" fill="#cbd5e1">3. Drafts professional tone contextual notification language</text>
+      <rect x="0" y="82" width="452" height="24" rx="4" fill="#3b0764" stroke="#d8b4fe" stroke-width="0.8"/>
+      <text x="226" y="98" font-size="10" font-weight="800" fill="#f5d0fe" text-anchor="middle">UNTRUSTED OUTPUT — NO DIRECT SIDE-EFFECT CAPABILITY</text>
+    </g>
+  </g>
+
+  <!-- MODEL ARMOR POST-LLM -->
+  <g transform="translate(140, 780)" filter="url(#shadow)">
+    <rect width="480" height="90" rx="10" fill="#0f172a" stroke="#f59e0b" stroke-width="1.5"/>
+    <rect x="0" y="0" width="480" height="24" rx="10" fill="#451a03" clip-path="inset(0 0 0 0 round 10px 10px 0 0)"/>
+    <text x="12" y="16" font-size="11" font-weight="800" fill="#fef3c7">GOOGLE CLOUD MODEL ARMOR — POST-LLM INSPECTION (SanitizeModelResponse)</text>
+    <g transform="translate(12, 38)">
+      <text x="0" y="14" font-size="10.5" fill="#fde68a">• Credential &amp; API Key Leakage Filter (Google API keys, AWS tokens, JWTs)</text>
+      <text x="0" y="32" font-size="10.5" fill="#fde68a">• Cross-Site Scripting &amp; Payload Sanitization (&lt;script&gt;, javascript: handlers)</text>
+    </g>
+  </g>
+
+  <!-- TYPED PROPOSAL ENVELOPE -->
+  <g transform="translate(140, 890)" filter="url(#shadow)">
+    <rect width="480" height="110" rx="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.5"/>
+    <path d="M 0 0 L 480 0 L 480 26 L 0 26 Z" fill="#312e81" clip-path="inset(0 0 0 0 round 10px 10px 0 0)"/>
+    <text x="12" y="18" font-size="11.5" font-weight="800" fill="#e0e7ff">Typed Proposal Envelope: `AgentActionProposal` + `AgentAuthContext`</text>
+    <g transform="translate(14, 38)">
+      <text x="0" y="14" font-size="10.5" font-family="monospace" fill="#a5b4fc">proposal_id | agent_id: "finance-agent" | action_name: "issue_refund"</text>
+      <text x="0" y="32" font-size="10.5" font-family="monospace" fill="#a5b4fc">amount: Decimal("20000.00") | currency: "INR" | recipient: "user@corp.com"</text>
+      <text x="0" y="50" font-size="10.5" font-family="monospace" fill="#a5b4fc">hmac_signature: "a8f9c2..." | request_id: "req_3910f" (Replay Protected)</text>
+    </g>
+  </g>
+
+  <!-- AGENT GATEWAY & ZERO-TRUST AUTH -->
+  <g transform="translate(710, 210)" filter="url(#shadow)">
+    <rect width="600" height="190" rx="12" fill="url(#cardGrad)" stroke="#38bdf8" stroke-width="2" filter="url(#glowCyan)"/>
+    <path d="M 0 0 L 600 0 L 600 32 L 0 32 Z" fill="#0369a1" clip-path="inset(0 0 0 0 round 12px 12px 0 0)"/>
+    <text x="14" y="21" font-size="13" font-weight="800" fill="#f0f9ff">ApprovalLoop Gateway &amp; Zero-Trust Auth Provider</text>
+    
+    <g transform="translate(14, 44)">
+      <rect x="0" y="0" width="276" height="58" rx="6" fill="#082f49" stroke="#0ea5e9" stroke-width="1"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#bae6fd">1. Cryptographic Identity</text>
+      <text x="10" y="34" font-size="9.5" fill="#7dd3fc">• HMAC-SHA256 Secret Verification</text>
+      <text x="10" y="48" font-size="9.5" fill="#7dd3fc">• Google Cloud IAM OIDC Token Hook</text>
+
+      <rect x="294" y="0" width="276" height="58" rx="6" fill="#082f49" stroke="#0ea5e9" stroke-width="1"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#bae6fd">2. Distributed Replay Guard</text>
+      <text x="10" y="34" font-size="9.5" fill="#7dd3fc">• Request ID Deduplication Cache</text>
+      <text x="10" y="48" font-size="9.5" fill="#7dd3fc">• Timestamp Drift Window (±300s)</text>
+
+      <rect x="0" y="68" width="276" height="58" rx="6" fill="#082f49" stroke="#0ea5e9" stroke-width="1"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#bae6fd">3. Agent Registry Check</text>
+      <text x="10" y="34" font-size="9.5" fill="#7dd3fc">• Agent Status == ACTIVE</text>
+      <text x="10" y="48" font-size="9.5" fill="#7dd3fc">• Action in allowed_actions Whitelist</text>
+
+      <rect x="294" y="68" width="276" height="58" rx="6" fill="#082f49" stroke="#0ea5e9" stroke-width="1"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#bae6fd">4. 4-Point Safety Validator</text>
+      <text x="10" y="34" font-size="9.5" fill="#7dd3fc">• Exact Decimal Financial Precision</text>
+      <text x="10" y="48" font-size="9.5" fill="#7dd3fc">• Recipient &amp; ID Mathematical Match</text>
+    </g>
+  </g>
+
+  <!-- DETERMINISTIC POLICY ENGINE -->
+  <g transform="translate(710, 430)" filter="url(#shadow)">
+    <rect width="600" height="210" rx="12" fill="url(#cardGrad)" stroke="#10b981" stroke-width="2"/>
+    <path d="M 0 0 L 600 0 L 600 32 L 0 32 Z" fill="#065f46" clip-path="inset(0 0 0 0 round 12px 12px 0 0)"/>
+    <text x="14" y="21" font-size="13" font-weight="800" fill="#ecfdf5">Deterministic Policy Engine (Versioned Profiles: `finance-v3`)</text>
+    
+    <g transform="translate(14, 46)">
+      <!-- Tier A: ALLOW -->
+      <rect x="0" y="0" width="180" height="140" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1.5"/>
+      <rect x="8" y="8" width="70" height="20" rx="4" fill="#059669"/>
+      <text x="43" y="22" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">ALLOW</text>
+      <text x="10" y="48" font-size="11" font-weight="700" fill="#a7f3d0">Low Risk Tier</text>
+      <text x="10" y="66" font-size="10" fill="#d1fae5">• Amount &lt; ₹5,000</text>
+      <text x="10" y="82" font-size="10" fill="#d1fae5">• Standard approvals</text>
+      <text x="10" y="104" font-size="9.5" font-weight="700" fill="#6ee7b7">→ Immediate Execution</text>
+      <text x="10" y="122" font-size="9" fill="#a7f3d0">Autonomous pathway</text>
+
+      <!-- Tier B: REQUIRE_HUMAN_APPROVAL -->
+      <rect x="194" y="0" width="184" height="140" rx="8" fill="#451a03" stroke="#fbbf24" stroke-width="1.5"/>
+      <rect x="202" y="8" width="150" height="20" rx="4" fill="#d97706"/>
+      <text x="277" y="22" font-size="10" font-weight="800" fill="#ffffff" text-anchor="middle">HUMAN APPROVAL</text>
+      <text x="204" y="48" font-size="11" font-weight="700" fill="#fde68a">Medium Risk Tier</text>
+      <text x="204" y="66" font-size="10" fill="#fef3c7">• ₹5,000 – ₹25,000</text>
+      <text x="204" y="82" font-size="10" fill="#fef3c7">• Non-standard terms</text>
+      <text x="204" y="104" font-size="9.5" font-weight="700" fill="#fcd34d">→ Pause in Memory</text>
+      <text x="204" y="122" font-size="9" fill="#fde68a">Queued for Operator</text>
+
+      <!-- Tier C: DENY -->
+      <rect x="392" y="0" width="180" height="140" rx="8" fill="#4c0519" stroke="#f87171" stroke-width="1.5"/>
+      <rect x="400" y="8" width="60" height="20" rx="4" fill="#dc2626"/>
+      <text x="430" y="22" font-size="10.5" font-weight="800" fill="#ffffff" text-anchor="middle">DENY</text>
+      <text x="402" y="48" font-size="11" font-weight="700" fill="#fecaca">Prohibited / High</text>
+      <text x="402" y="66" font-size="10" fill="#fee2e2">• Amount &gt; ₹25,000</text>
+      <text x="402" y="82" font-size="10" fill="#fee2e2">• Unknown Profiles</text>
+      <text x="402" y="104" font-size="9.5" font-weight="700" fill="#fca5a5">→ Block Execution</text>
+      <text x="402" y="122" font-size="9" fill="#fecaca">Logged to Audit Trail</text>
+    </g>
+  </g>
+
+  <!-- HUMAN OVERSIGHT APPROVAL QUEUE -->
+  <g transform="translate(710, 670)" filter="url(#shadow)">
+    <rect width="600" height="170" rx="12" fill="url(#cardGrad)" stroke="#fbbf24" stroke-width="1.5"/>
+    <path d="M 0 0 L 600 0 L 600 32 L 0 32 Z" fill="#78350f" clip-path="inset(0 0 0 0 round 12px 12px 0 0)"/>
+    <text x="14" y="21" font-size="13" font-weight="800" fill="#fef3c7">Human Oversight: Approval Queue &amp; Operator Decision</text>
+    
+    <g transform="translate(14, 44)">
+      <rect x="0" y="0" width="280" height="106" rx="6" fill="#1e293b" stroke="#334155"/>
+      <text x="10" y="20" font-size="11.5" font-weight="700" fill="#f8fafc">Pending Decision Inbox (`/api/approvals`)</text>
+      <text x="10" y="40" font-size="10" fill="#cbd5e1">• Displays Gemini proposal &amp; reasoning draft</text>
+      <text x="10" y="58" font-size="10" fill="#cbd5e1">• Shows full 4-point safety validation metrics</text>
+      <text x="10" y="76" font-size="10" fill="#cbd5e1">• Cross-session context preserved in Memory Bank</text>
+      <text x="10" y="94" font-size="10" fill="#cbd5e1">• Atomic single-claim prevents double sign-off</text>
+
+      <g transform="translate(296, 0)">
+        <rect x="0" y="0" width="276" height="48" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+        <text x="10" y="20" font-size="11" font-weight="800" fill="#34d399">APPROVE ACTION</text>
+        <text x="10" y="36" font-size="9.5" fill="#a7f3d0">Resumes async workflow → dispatches to Worker</text>
+
+        <rect x="0" y="58" width="276" height="48" rx="6" fill="#4c0519" stroke="#ef4444" stroke-width="1"/>
+        <text x="10" y="20" font-size="11" font-weight="800" fill="#f87171">REJECT ACTION</text>
+        <text x="10" y="36" font-size="9.5" fill="#fca5a5">Permanently halts workflow → commits to Audit</text>
       </g>
     </g>
   </g>
 
-  <!-- ========================================================================= -->
-  <!-- LAYER B: CORE APPROVAL ENGINE ORCHESTRATOR (CENTER - DOMINANT) -->
-  <!-- ========================================================================= -->
-  <g transform="translate(420, 115)">
-    <!-- Container Box -->
-    <rect width="1020" height="1060" rx="14" fill="url(#engineGrad)" stroke="#6366f1" stroke-width="2" filter="url(#dropShadow)"/>
-    
-    <!-- Engine Header -->
-    <rect width="1020" height="52" rx="14" fill="#312e81"/>
-    <rect y="38" width="1020" height="14" fill="#312e81"/>
-    
-    <text x="20" y="32" font-size="18" font-weight="800" fill="#ffffff" letter-spacing="0.5">ApprovalEngine — Autonomous Orchestrator</text>
-    <text x="440" y="32" font-size="13" font-family="monospace" fill="#c7d2fe">backend/approval_loop/engine.py</text>
-    
-    <rect x="740" y="11" width="260" height="30" rx="6" fill="#1e1b4b" stroke="#818cf8" stroke-width="1"/>
-    <text x="870" y="31" font-size="11.5" font-weight="700" fill="#a5b4fc" text-anchor="middle">PIPELINE: OBSERVE ➔ DECIDE ➔ ACT</text>
-
-    <!-- ======================================================================= -->
-    <!-- PIPELINE ROW 1: OBSERVE -> ELIGIBILITY -> SKILL REGISTRY -->
-    <!-- ======================================================================= -->
-    <g transform="translate(20, 68)">
-      <!-- STEP 1: OBSERVE OPEN REPORTS -->
-      <g transform="translate(0, 0)">
-        <rect width="305" height="150" rx="8" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
-        <rect width="305" height="28" rx="8" fill="#1e293b"/>
-        <rect y="20" width="305" height="8" fill="#1e293b"/>
-        <circle cx="16" cy="14" r="8" fill="#0284c7"/>
-        <text x="16" y="18" font-size="10" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
-        <text x="30" y="18" font-size="12" font-weight="700" fill="#f8fafc">Observe Open Reports</text>
-        <text x="295" y="18" font-size="10" font-family="monospace" fill="#38bdf8" text-anchor="end">repo.list_open_reports()</text>
-
-        <text x="12" y="48" font-size="11" font-weight="600" fill="#cbd5e1">Scans open expense approvals</text>
-        <text x="12" y="66" font-size="10" fill="#94a3b8">• Filters: <tspan fill="#38bdf8" font-family="monospace">status != RESOLVED</tspan></text>
-        <text x="12" y="84" font-size="10" fill="#94a3b8">• Source: Firestore / InMemory DB</text>
-        <text x="12" y="102" font-size="10" fill="#94a3b8">• Reads submitted timestamps &amp; amounts</text>
-
-        <rect x="12" y="114" width="281" height="24" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="20" y="130" font-size="10" font-family="monospace" fill="#34d399">Span: "observe"</text>
-        <text x="285" y="130" font-size="9.5" fill="#94a3b8" text-anchor="end">No LLM Involved</text>
-      </g>
-
-      <!-- Arrow 1 -> 2 -->
-      <path d="M 305 75 L 335 75" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)"/>
-
-      <!-- STEP 2: DETERMINISTIC ELIGIBILITY -->
-      <g transform="translate(337, 0)">
-        <rect width="305" height="150" rx="8" fill="#0f172a" stroke="#10b981" stroke-width="1.5"/>
-        <rect width="305" height="28" rx="8" fill="#064e3b"/>
-        <rect y="20" width="305" height="8" fill="#064e3b"/>
-        <circle cx="16" cy="14" r="8" fill="#047857"/>
-        <text x="16" y="18" font-size="10" font-weight="800" fill="#ffffff" text-anchor="middle">2</text>
-        <text x="30" y="18" font-size="12" font-weight="700" fill="#f8fafc">EligibilityEvaluator</text>
-        <text x="295" y="18" font-size="10" font-family="monospace" fill="#34d399" text-anchor="end">domain/eligibility.py</text>
-
-        <text x="12" y="46" font-size="11" font-weight="700" fill="#6ee7b7">Deterministic Business Logic</text>
-        <text x="12" y="64" font-size="10" fill="#cbd5e1">• <tspan font-weight="700" fill="#f8fafc">Pending &gt; Nudge threshold</tspan> ➔ <tspan fill="#38bdf8" font-weight="700">Nudge</tspan></text>
-        <text x="12" y="82" font-size="10" fill="#cbd5e1">• <tspan font-weight="700" fill="#f8fafc">Nudged &gt; Escalate threshold</tspan> ➔ <tspan fill="#fbbf24" font-weight="700">Escalate</tspan></text>
-        <text x="12" y="100" font-size="10" fill="#94a3b8">• Immutable timestamp subtraction</text>
-
-        <rect x="12" y="114" width="281" height="24" rx="4" fill="#064e3b" fill-opacity="0.4" stroke="#059669" stroke-width="1"/>
-        <text x="20" y="130" font-size="10" font-family="monospace" fill="#a7f3d0">Span: "eligibility"</text>
-        <text x="285" y="130" font-size="9" font-weight="600" fill="#34d399" text-anchor="end">Zero Hallucination</text>
-      </g>
-
-      <!-- Arrow 2 -> 3 -->
-      <path d="M 642 75 L 672 75" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)"/>
-
-      <!-- STEP 3: RUNTIME SKILL DISCOVERY -->
-      <g transform="translate(675, 0)">
-        <rect width="305" height="150" rx="8" fill="#0f172a" stroke="#818cf8" stroke-width="1.5"/>
-        <rect width="305" height="28" rx="8" fill="#312e81"/>
-        <rect y="20" width="305" height="8" fill="#312e81"/>
-        <circle cx="16" cy="14" r="8" fill="#4f46e5"/>
-        <text x="16" y="18" font-size="10" font-weight="800" fill="#ffffff" text-anchor="middle">3</text>
-        <text x="30" y="18" font-size="12" font-weight="700" fill="#f8fafc">SkillRegistry</text>
-        <text x="295" y="18" font-size="10" font-family="monospace" fill="#c7d2fe" text-anchor="end">skills/skill_registry.py</text>
-
-        <text x="12" y="46" font-size="11" font-weight="700" fill="#a5b4fc">Progressive Disclosure Loader</text>
-        <text x="12" y="64" font-size="10" fill="#cbd5e1">• <tspan font-weight="700" fill="#ffffff">Level 1:</tspan> <tspan font-family="monospace" fill="#c7d2fe">SKILL.md</tspan> (Overview &amp; Triggers)</text>
-        <text x="12" y="82" font-size="10" fill="#cbd5e1">• <tspan font-weight="700" fill="#ffffff">Level 2:</tspan> <tspan font-family="monospace" fill="#fbbf24">escalation_policy.md</tspan></text>
-        <text x="12" y="98" font-size="9.5" fill="#fde68a">  (Loaded only for High-Value &ge; $5,000)</text>
-
-        <rect x="12" y="114" width="281" height="24" rx="4" fill="#312e81" fill-opacity="0.5" stroke="#6366f1" stroke-width="1"/>
-        <text x="20" y="130" font-size="10" font-family="monospace" fill="#c7d2fe">Span: "skill.load"</text>
-        <text x="285" y="130" font-size="9" fill="#a5b4fc" text-anchor="end">Procedural Knowledge</text>
-      </g>
-    </g>
-
-    <!-- Connector Row 1 -> Row 2 -->
-    <path d="M 827 218 L 827 242 L 152 242 L 152 262" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)" fill="none"/>
-
-    <!-- ======================================================================= -->
-    <!-- PIPELINE ROW 2: TRANSACTIONAL CLAIM -> GEMINI DRAFTER -> ENVELOPE -->
-    <!-- ======================================================================= -->
-    <g transform="translate(20, 264)">
-      <!-- STEP 4: TRANSACTIONAL OUTBOX CLAIM -->
-      <g transform="translate(0, 0)">
-        <rect width="305" height="175" rx="8" fill="#0f172a" stroke="#f59e0b" stroke-width="1.8" filter="url(#dropShadow)"/>
-        <rect width="305" height="28" rx="8" fill="#78350f"/>
-        <rect y="20" width="305" height="8" fill="#78350f"/>
-        <circle cx="16" cy="14" r="8" fill="#d97706"/>
-        <text x="16" y="18" font-size="10" font-weight="800" fill="#ffffff" text-anchor="middle">4</text>
-        <text x="30" y="18" font-size="12" font-weight="700" fill="#f8fafc">Transactional Outbox Claim</text>
-        <text x="295" y="18" font-size="9.5" font-family="monospace" fill="#fde68a" text-anchor="end">firestore_repo.py</text>
-
-        <!-- Key calculation callout -->
-        <rect x="10" y="36" width="285" height="30" rx="4" fill="#1e293b" stroke="#f59e0b" stroke-width="1"/>
-        <text x="16" y="48" font-size="9" fill="#94a3b8">Idempotency Key Formulation:</text>
-        <text x="16" y="61" font-size="10" font-family="monospace" font-weight="700" fill="#fbbf24">idempotency_key = report_id + ":" + action_type</text>
-
-        <text x="12" y="82" font-size="10" fill="#cbd5e1">• <tspan font-weight="700" fill="#34d399">Claim Granted</tspan> ➔ Acquire lock &amp; start draft</text>
-        <text x="12" y="98" font-size="10" fill="#cbd5e1">• <tspan font-weight="700" fill="#f87171">Already Claimed</tspan> ➔ Skip duplicate execution</text>
-        <text x="12" y="114" font-size="10" fill="#94a3b8">• Atomic lock BEFORE calling Gemini API</text>
-
-        <rect x="12" y="128" width="281" height="24" rx="4" fill="#78350f" fill-opacity="0.4" stroke="#d97706" stroke-width="1"/>
-        <text x="20" y="144" font-size="10" font-family="monospace" fill="#fde68a">Span: "claim"</text>
-        <text x="285" y="144" font-size="9" font-weight="600" fill="#fbbf24" text-anchor="end">Prevents Race Duplicate</text>
-      </g>
-
-      <!-- Arrow 4 -> 5 -->
-      <path d="M 305 87 L 335 87" stroke="#c084fc" stroke-width="2" marker-end="url(#arrowPurple)"/>
-
-      <!-- STEP 5: GEMINI AGENT DRAFTER (LANGUAGE ONLY BOUNDARY) -->
-      <g transform="translate(337, 0)">
-        <rect width="320" height="175" rx="8" fill="url(#geminiGrad)" stroke="#a855f7" stroke-width="2" filter="url(#glowPurple)"/>
-        <rect width="320" height="28" rx="8" fill="#581c87"/>
-        <rect y="20" width="320" height="8" fill="#581c87"/>
-        <circle cx="16" cy="14" r="8" fill="#7e22ce"/>
-        <text x="16" y="18" font-size="10" font-weight="800" fill="#ffffff" text-anchor="middle">5</text>
-        <text x="30" y="18" font-size="12" font-weight="700" fill="#f8fafc">GeminiAgentDrafter</text>
-        <text x="310" y="18" font-size="10" font-family="monospace" fill="#e9d5ff" text-anchor="end">agent/drafter.py</text>
-
-        <rect x="10" y="34" width="300" height="22" rx="4" fill="#3b0764" stroke="#d8b4fe" stroke-width="1"/>
-        <text x="160" y="49" font-size="10.5" font-weight="800" fill="#f5d0fe" text-anchor="middle">LLM — LANGUAGE DRAFTING ONLY</text>
-
-        <text x="12" y="72" font-size="10" fill="#e9d5ff">• Model: <tspan font-weight="700" fill="#ffffff">Gemini 3.7 Flash</tspan> (Google GenAI SDK)</text>
-        <text x="12" y="88" font-size="10" fill="#e9d5ff">• Structured output validated via <tspan font-family="monospace" fill="#ffffff">Pydantic</tspan></text>
-        <text x="12" y="104" font-size="10" fill="#fca5a5">• <tspan font-weight="700" fill="#fecaca">UNTRUSTED PROPOSAL:</tspan> Cannot mutate state</text>
-        <text x="12" y="120" font-size="9.5" fill="#d8b4fe">• Zero authority over amount, recipient, or DB</text>
-
-        <rect x="12" y="132" width="296" height="24" rx="4" fill="#3b0764" stroke="#a855f7" stroke-width="1"/>
-        <text x="20" y="148" font-size="10" font-family="monospace" fill="#e9d5ff">Span: "gemini.draft"</text>
-        <text x="300" y="148" font-size="9" font-weight="600" fill="#d8b4fe" text-anchor="end">DraftProposalResponse</text>
-      </g>
-
-      <!-- Arrow 5 -> Envelope -->
-      <path d="M 657 87 L 687 87" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)"/>
-
-      <!-- AUTHORITATIVE ENVELOPE ASSEMBLY -->
-      <g transform="translate(690, 0)">
-        <rect width="290" height="175" rx="8" fill="#0f172a" stroke="#38bdf8" stroke-width="1.8"/>
-        <rect width="290" height="28" rx="8" fill="#0369a1"/>
-        <rect y="20" width="290" height="8" fill="#0369a1"/>
-        <text x="12" y="18" font-size="11.5" font-weight="700" fill="#ffffff">Authoritative NotificationEnvelope</text>
-        <text x="280" y="18" font-size="9.5" font-family="monospace" fill="#bae6fd" text-anchor="end">models.py</text>
-
-        <text x="10" y="44" font-size="9.5" font-weight="700" fill="#38bdf8">PYTHON OWNS BUSINESS TRUTH:</text>
-
-        <g transform="translate(8, 50)">
-          <text x="4" y="14" font-size="9.5" font-family="monospace" fill="#34d399">report_id</text><text x="110" y="14" font-size="9" fill="#94a3b8">← App State (IMMUTABLE)</text>
-          <text x="4" y="28" font-size="9.5" font-family="monospace" fill="#34d399">amount, currency</text><text x="110" y="28" font-size="9" fill="#94a3b8">← App State (Decimal)</text>
-          <text x="4" y="42" font-size="9.5" font-family="monospace" fill="#34d399">recipient</text><text x="110" y="42" font-size="9" fill="#94a3b8">← ApproverRegistry</text>
-          <text x="4" y="56" font-size="9.5" font-family="monospace" fill="#34d399">subject</text><text x="110" y="56" font-size="9" fill="#94a3b8">← Deterministic Code</text>
-          <text x="4" y="70" font-size="9.5" font-family="monospace" fill="#c084fc">body_text</text><text x="110" y="70" font-size="9" fill="#d8b4fe">← ONLY FIELD FROM LLM</text>
-        </g>
-
-        <rect x="8" y="132" width="274" height="24" rx="4" fill="#0369a1" fill-opacity="0.3" stroke="#0284c7" stroke-width="1"/>
-        <text x="145" y="148" font-size="9.5" font-weight="700" fill="#7dd3fc" text-anchor="middle">Business Truth Decoupled from LLM</text>
-      </g>
-    </g>
-
-    <!-- Connector Row 2 -> Row 3 -->
-    <path d="M 835 440 L 835 464 L 172 464 L 172 484" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)" fill="none"/>
-
-    <!-- ======================================================================= -->
-    <!-- PIPELINE ROW 3: DETERMINISTIC VALIDATOR -> POLICY ENGINE -->
-    <!-- ======================================================================= -->
-    <g transform="translate(20, 488)">
-      <!-- STEP 6: 4-POINT DETERMINISTIC SAFETY VALIDATOR (GATE) -->
-      <g transform="translate(0, 0)">
-        <rect width="470" height="210" rx="10" fill="url(#validatorGrad)" stroke="#10b981" stroke-width="2" filter="url(#glowGreen)"/>
-        <rect width="470" height="32" rx="10" fill="#064e3b"/>
-        <rect y="22" width="470" height="10" fill="#064e3b"/>
-        <circle cx="18" cy="16" r="9" fill="#059669"/>
-        <text x="18" y="20" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">6</text>
-        <text x="36" y="21" font-size="13" font-weight="800" fill="#ffffff">4-Point Deterministic Safety Validator Gate</text>
-        <text x="458" y="21" font-size="10" font-family="monospace" fill="#a7f3d0" text-anchor="end">validator/validator.py</text>
-
-        <!-- 4 Sub-checks -->
-        <g transform="translate(14, 42)">
-          <rect width="442" height="28" rx="4" fill="#022c22" stroke="#047857" stroke-width="1"/>
-          <text x="10" y="18" font-size="10.5" font-weight="700" fill="#34d399">1. Recipient Match:</text>
-          <text x="135" y="18" font-size="10" fill="#cbd5e1">envelope.recipient in ApproverRegistry hierarchy</text>
-          <text x="432" y="18" font-size="10" font-weight="700" fill="#34d399" text-anchor="end">✓ Check</text>
-
-          <rect y="34" width="442" height="28" rx="4" fill="#022c22" stroke="#047857" stroke-width="1"/>
-          <text x="10" y="52" font-size="10.5" font-weight="700" fill="#34d399">2. Report ID Match:</text>
-          <text x="135" y="52" font-size="10" fill="#cbd5e1">envelope.report_id == action.report_id == DB.report_id</text>
-          <text x="432" y="52" font-size="10" font-weight="700" fill="#34d399" text-anchor="end">✓ Check</text>
-
-          <rect y="68" width="442" height="28" rx="4" fill="#022c22" stroke="#047857" stroke-width="1"/>
-          <text x="10" y="86" font-size="10.5" font-weight="700" fill="#34d399">3. Decimal Amount:</text>
-          <text x="135" y="86" font-size="10" fill="#cbd5e1">envelope.amount == DB.amount (Zero floating drift)</text>
-          <text x="432" y="86" font-size="10" font-weight="700" fill="#34d399" text-anchor="end">✓ Check</text>
-
-          <rect y="102" width="442" height="28" rx="4" fill="#022c22" stroke="#047857" stroke-width="1"/>
-          <text x="10" y="120" font-size="10.5" font-weight="700" fill="#34d399">4. State Machine:</text>
-          <text x="135" y="120" font-size="10" fill="#cbd5e1">StateMachine.is_transition_legal(source, target)</text>
-          <text x="432" y="120" font-size="10" font-weight="700" fill="#34d399" text-anchor="end">✓ Check</text>
-        </g>
-
-        <!-- Pass vs Fail Footer -->
-        <g transform="translate(14, 178)">
-          <rect width="216" height="24" rx="4" fill="#065f46" stroke="#10b981" stroke-width="1"/>
-          <text x="108" y="16" font-size="10" font-weight="800" fill="#34d399" text-anchor="middle">PASS ➔ Proceed to Policy</text>
-
-          <rect x="226" y="0" width="216" height="24" rx="4" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
-          <text x="334" y="16" font-size="10" font-weight="800" fill="#fca5a5" text-anchor="middle">BLOCKED ➔ Abort &amp; Audit</text>
-        </g>
-      </g>
-
-      <!-- Arrow 6 -> 7 (PASS path) -->
-      <path d="M 470 105 L 508 105" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
-      <text x="489" y="98" font-size="9" font-weight="700" fill="#34d399" text-anchor="middle">PASS</text>
-
-      <!-- STEP 7: CORPORATE POLICY ENGINE -->
-      <g transform="translate(510, 0)">
-        <rect width="470" height="210" rx="10" fill="url(#policyGrad)" stroke="#3b82f6" stroke-width="2" filter="url(#dropShadow)"/>
-        <rect width="470" height="32" rx="10" fill="#1e3a8a"/>
-        <rect y="22" width="470" height="10" fill="#1e3a8a"/>
-        <circle cx="18" cy="16" r="9" fill="#2563eb"/>
-        <text x="18" y="20" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">7</text>
-        <text x="36" y="21" font-size="13" font-weight="800" fill="#ffffff">Corporate Policy Engine (Governance)</text>
-        <text x="458" y="21" font-size="10" font-family="monospace" fill="#93c5fd" text-anchor="end">policy/policy_engine.py</text>
-
-        <!-- Policy Rules -->
-        <g transform="translate(14, 42)">
-          <rect width="442" height="28" rx="4" fill="#0f172a" stroke="#1d4ed8" stroke-width="1"/>
-          <text x="10" y="18" font-size="10" font-weight="700" fill="#60a5fa">POL-DOM-01 (Domain):</text>
-          <text x="155" y="18" font-size="9.5" fill="#cbd5e1">Restricts attacker / untrusted domains</text>
-          <text x="432" y="18" font-size="9.5" font-weight="600" fill="#38bdf8" text-anchor="end">Enforced</text>
-
-          <rect y="34" width="442" height="28" rx="4" fill="#0f172a" stroke="#1d4ed8" stroke-width="1"/>
-          <text x="10" y="52" font-size="10" font-weight="700" fill="#60a5fa">POL-VAL-02 (High-Value):</text>
-          <text x="155" y="52" font-size="9.5" fill="#cbd5e1">&ge; $5,000 escalation requires Director/VP</text>
-          <text x="432" y="52" font-size="9.5" font-weight="600" fill="#38bdf8" text-anchor="end">Enforced</text>
-
-          <rect y="68" width="442" height="28" rx="4" fill="#0f172a" stroke="#1d4ed8" stroke-width="1"/>
-          <text x="10" y="86" font-size="10" font-weight="700" fill="#60a5fa">POL-STA-03 (State Invariant):</text>
-          <text x="155" y="86" font-size="9.5" fill="#cbd5e1">Blocks side-effects if status is RESOLVED</text>
-          <text x="432" y="86" font-size="9.5" font-weight="600" fill="#38bdf8" text-anchor="end">Enforced</text>
-
-          <rect y="102" width="442" height="28" rx="4" fill="#0f172a" stroke="#1d4ed8" stroke-width="1"/>
-          <text x="10" y="120" font-size="10" font-weight="700" fill="#60a5fa">POL-ENV-04 (Prod Guard):</text>
-          <text x="155" y="120" font-size="9.5" fill="#cbd5e1">Restricts synthetic test IDs in PRODUCTION</text>
-          <text x="432" y="120" font-size="9.5" font-weight="600" fill="#38bdf8" text-anchor="end">Enforced</text>
-        </g>
-
-        <!-- Policy Decision Footer -->
-        <g transform="translate(14, 178)">
-          <rect width="216" height="24" rx="4" fill="#1e3a8a" stroke="#3b82f6" stroke-width="1"/>
-          <text x="108" y="16" font-size="10" font-weight="800" fill="#93c5fd" text-anchor="middle">ALLOW ➔ Dispatch Worker</text>
-
-          <rect x="226" y="0" width="216" height="24" rx="4" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
-          <text x="334" y="16" font-size="10" font-weight="800" fill="#fca5a5" text-anchor="middle">DENY ➔ Blocked Action</text>
-        </g>
-      </g>
-    </g>
-
-    <!-- Connector Row 3 -> Row 4 -->
-    <path d="M 618 700 L 618 720 L 255 720 L 255 738" stroke="#34d399" stroke-width="2" marker-end="url(#arrowGreen)" fill="none"/>
-
-    <!-- ======================================================================= -->
-    <!-- PIPELINE ROW 4: NOTIFICATION WORKER -> CONDITIONAL STATE GUARD -->
-    <!-- ======================================================================= -->
-    <g transform="translate(20, 742)">
-      <!-- STEP 8: MOCK NOTIFICATION WORKER -->
-      <g transform="translate(0, 0)">
-        <rect width="470" height="155" rx="10" fill="#0f172a" stroke="#0ea5e9" stroke-width="1.8"/>
-        <rect width="470" height="30" rx="10" fill="#0369a1"/>
-        <rect y="20" width="470" height="10" fill="#0369a1"/>
-        <circle cx="18" cy="15" r="9" fill="#0284c7"/>
-        <text x="18" y="19" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">8</text>
-        <text x="36" y="20" font-size="13" font-weight="700" fill="#ffffff">MockNotificationWorker (Dispatch Simulator)</text>
-        <text x="458" y="20" font-size="10" font-family="monospace" fill="#bae6fd" text-anchor="end">worker/worker.py</text>
-
-        <rect x="12" y="38" width="446" height="22" rx="4" fill="#082f49" stroke="#0ea5e9" stroke-width="1"/>
-        <text x="235" y="53" font-size="10" font-weight="800" fill="#7dd3fc" text-anchor="middle">SIMULATED PROVIDER — NO REAL EMAIL TRANSMISSION</text>
-
-        <text x="14" y="78" font-size="10" fill="#cbd5e1">• Provider Idempotency: Deduplicates on <tspan font-family="monospace" fill="#fbbf24">idempotency_key</tspan></text>
-        <text x="14" y="94" font-size="10" fill="#cbd5e1">• Generates deterministic Delivery Receipt ID (<tspan font-family="monospace" fill="#38bdf8">notif_xxxxxxxx</tspan>)</text>
-        <text x="14" y="110" font-size="10" fill="#94a3b8">• Logs full delivery payload &amp; metrics for autonomous auditability</text>
-
-        <rect x="12" y="122" width="446" height="24" rx="4" fill="#082f49" stroke="#0284c7" stroke-width="1"/>
-        <text x="20" y="138" font-size="10" font-family="monospace" fill="#7dd3fc">Span: "notification"</text>
-        <text x="450" y="138" font-size="9" font-weight="600" fill="#38bdf8" text-anchor="end">Delivery Acknowledged</text>
-      </g>
-
-      <!-- Arrow 8 -> 9 -->
-      <path d="M 470 78 L 508 78" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrowBlue)"/>
-
-      <!-- STEP 9: CONDITIONAL STATE GUARD -->
-      <g transform="translate(510, 0)">
-        <rect width="470" height="155" rx="10" fill="#0f172a" stroke="#10b981" stroke-width="2" filter="url(#dropShadow)"/>
-        <rect width="470" height="30" rx="10" fill="#064e3b"/>
-        <rect y="20" width="470" height="10" fill="#064e3b"/>
-        <circle cx="18" cy="15" r="9" fill="#059669"/>
-        <text x="18" y="19" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">9</text>
-        <text x="36" y="20" font-size="13" font-weight="800" fill="#ffffff">Conditional State Guard (Race Safe Invariant)</text>
-        <text x="458" y="20" font-size="10" font-family="monospace" fill="#a7f3d0" text-anchor="end">firestore_repo.py</text>
-
-        <!-- Condition check -->
-        <rect x="12" y="38" width="446" height="26" rx="4" fill="#022c22" stroke="#10b981" stroke-width="1"/>
-        <text x="20" y="55" font-size="11" font-family="monospace" font-weight="700" fill="#34d399">current_state == expected_source_state ?</text>
-
-        <!-- Match vs Mismatch branches -->
-        <g transform="translate(12, 70)">
-          <!-- Match Branch -->
-          <rect width="218" height="46" rx="4" fill="#064e3b" stroke="#059669" stroke-width="1"/>
-          <text x="8" y="18" font-size="10" font-weight="800" fill="#34d399">MATCH ➔ Apply State Transition</text>
-          <text x="8" y="34" font-size="9" fill="#cbd5e1">Pending ➔ Nudged | Nudged ➔ Escalated</text>
-
-          <!-- Mismatch Branch -->
-          <rect x="228" width="218" height="46" rx="4" fill="#450a0a" stroke="#dc2626" stroke-width="1"/>
-          <text x="236" y="18" font-size="10" font-weight="800" fill="#fca5a5">MISMATCH ➔ State Skipped</text>
-          <text x="236" y="34" font-size="9" fill="#cbd5e1">Human "Resolved" preserved over agent</text>
-        </g>
-
-        <rect x="12" y="122" width="446" height="24" rx="4" fill="#022c22" stroke="#059669" stroke-width="1"/>
-        <text x="20" y="138" font-size="10" font-family="monospace" fill="#a7f3d0">Span: "state_transition"</text>
-        <text x="450" y="138" font-size="9" font-weight="600" fill="#34d399" text-anchor="end">Atomic Firestore Commit</text>
-      </g>
-    </g>
-
-    <!-- ======================================================================= -->
-    <!-- MASTER ARCHITECTURE PRINCIPLE BANNER (BOTTOM OF ENGINE) -->
-    <!-- ======================================================================= -->
-    <g transform="translate(20, 915)">
-      <rect width="980" height="128" rx="10" fill="url(#bannerGrad)" stroke="#818cf8" stroke-width="1.8" filter="url(#dropShadow)"/>
-      
-      <text x="490" y="32" font-size="18" font-weight="900" fill="#ffffff" letter-spacing="1" text-anchor="middle">
-        CORE GOVERNANCE PRINCIPLE: “LLM PROPOSES. CODE DISPOSES.”
-      </text>
-
-      <g transform="translate(30, 48)">
-        <circle cx="10" cy="14" r="4" fill="#38bdf8"/>
-        <text x="22" y="18" font-size="11" font-weight="600" fill="#f8fafc"><tspan fill="#38bdf8">Gemini</tspan> generates polite reminder wording only.</text>
-
-        <circle cx="10" cy="38" r="4" fill="#34d399"/>
-        <text x="22" y="42" font-size="11" font-weight="600" fill="#f8fafc"><tspan fill="#34d399">Deterministic validators</tspan> authorize safety gates.</text>
-
-        <circle cx="10" cy="62" r="4" fill="#fbbf24"/>
-        <text x="22" y="66" font-size="11" font-weight="600" fill="#f8fafc"><tspan fill="#fbbf24">Transactions</tspan> prevent duplicate actions &amp; race collisions.</text>
-
-        <circle cx="490" cy="14" r="4" fill="#c084fc"/>
-        <text x="502" y="18" font-size="11" font-weight="600" fill="#f8fafc"><tspan fill="#c084fc">Python code</tspan> owns authoritative business truth.</text>
-
-        <circle cx="490" cy="38" r="4" fill="#60a5fa"/>
-        <text x="502" y="42" font-size="11" font-weight="600" fill="#f8fafc"><tspan fill="#60a5fa">Corporate policy</tspan> authorizes financial thresholds.</text>
-
-        <circle cx="490" cy="62" r="4" fill="#a7f3d0"/>
-        <text x="502" y="66" font-size="11" font-weight="600" fill="#f8fafc"><tspan fill="#a7f3d0">Audit ledger &amp; OTel</tspan> record every execution cycle.</text>
-      </g>
+  <!-- DETERMINISTIC STATE MACHINE -->
+  <g transform="translate(710, 865)" filter="url(#shadow)">
+    <rect width="600" height="135" rx="10" fill="#0f172a" stroke="#6366f1" stroke-width="1.5"/>
+    <path d="M 0 0 L 600 0 L 600 26 L 0 26 Z" fill="#312e81" clip-path="inset(0 0 0 0 round 10px 10px 0 0)"/>
+    <text x="12" y="18" font-size="11.5" font-weight="800" fill="#e0e7ff">Deterministic State Machine &amp; Atomic State Commit</text>
+    <g transform="translate(14, 38)">
+      <text x="0" y="16" font-size="11" font-family="monospace" fill="#c7d2fe">PENDING → CLAIMED → NUDGED → ESCALATED → APPROVED / DENIED</text>
+      <text x="0" y="36" font-size="10.5" fill="#94a3b8">• Guaranteed Invariant: Resolved states (APPROVED / REJECTED) are permanently inert</text>
+      <text x="0" y="54" font-size="10.5" fill="#94a3b8">• Scenario 13 Guard: Human direct sign-off immediately preempts background agent</text>
+      <text x="0" y="72" font-size="10.5" fill="#94a3b8">• Single-source-of-truth state transitions committed via atomic Firestore transactions</text>
     </g>
   </g>
 
-  <!-- ========================================================================= -->
-  <!-- LAYER C & D: FRONTEND CONTROL PLANE & OBSERVABILITY (RIGHT COLUMN) -->
-  <!-- ========================================================================= -->
-  <g transform="translate(1460, 115)">
-    <!-- Container Box -->
-    <rect width="500" height="1060" rx="12" fill="url(#cloudGrad)" stroke="#334155" stroke-width="1.5" filter="url(#dropShadow)"/>
+  <!-- DURABLE ASYNC RUNTIME -->
+  <g transform="translate(1400, 210)" filter="url(#shadow)">
+    <rect width="520" height="230" rx="12" fill="url(#cardGrad)" stroke="#38bdf8" stroke-width="2"/>
+    <path d="M 0 0 L 520 0 L 520 32 L 0 32 Z" fill="#0284c7" clip-path="inset(0 0 0 0 round 12px 12px 0 0)"/>
+    <text x="14" y="21" font-size="13" font-weight="800" fill="#f0f9ff">Durable Async Runtime &amp; Leased Worker Pool</text>
+    
+    <g transform="translate(14, 46)">
+      <rect x="0" y="0" width="240" height="70" rx="6" fill="#082f49" stroke="#0ea5e9" stroke-width="1"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#bae6fd">Task Leasing &amp; Crash Recovery</text>
+      <text x="10" y="36" font-size="9.5" fill="#7dd3fc">• Leases: 300s processing lock</text>
+      <text x="10" y="50" font-size="9.5" fill="#7dd3fc">• Expired lease auto-recovery</text>
+      <text x="10" y="64" font-size="9.5" fill="#7dd3fc">• Worker restart persistence</text>
 
-    <!-- Section Header -->
-    <rect width="500" height="42" rx="12" fill="#1e293b"/>
-    <rect y="30" width="500" height="12" fill="#1e293b"/>
-    <text x="16" y="26" font-size="14" font-weight="700" fill="#f8fafc" letter-spacing="0.5">OBSERVABILITY &amp; DEMO CONTROL PLANE</text>
-    <text x="484" y="26" font-size="11" font-family="monospace" fill="#38bdf8" text-anchor="end">React + TypeScript</text>
+      <rect x="252" y="0" width="240" height="70" rx="6" fill="#082f49" stroke="#0ea5e9" stroke-width="1"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#bae6fd">Idempotency &amp; Backoff</text>
+      <text x="10" y="36" font-size="9.5" fill="#7dd3fc">• Unique deterministic task keys</text>
+      <text x="10" y="50" font-size="9.5" fill="#7dd3fc">• Exponential retry backoff (x2)</text>
+      <text x="10" y="64" font-size="9.5" fill="#7dd3fc">• Dead letter capture after max retries</text>
 
-    <!-- Component 1: React + Vite Frontend Dashboard -->
-    <g transform="translate(16, 56)">
-      <rect width="468" height="260" rx="8" fill="#0f172a" stroke="#0ea5e9" stroke-width="1.5"/>
-      <rect width="468" height="32" rx="8" fill="#0369a1"/>
-      <rect y="22" width="468" height="10" fill="#0369a1"/>
-      
-      <text x="12" y="21" font-size="13" font-weight="700" fill="#f8fafc">React + TypeScript Dashboard</text>
-      <text x="456" y="21" font-size="10" font-family="monospace" fill="#e0f2fe" text-anchor="end">frontend/src/pages/Dashboard.tsx</text>
-
-      <text x="12" y="48" font-size="10.5" font-weight="600" fill="#7dd3fc">Purely Observational Polling Plane (Zero Autonomous Tick Side-Effects):</text>
-
-      <!-- 6 Component Cards -->
-      <g transform="translate(10, 58)">
-        <rect width="218" height="38" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="8" y="16" font-size="10" font-weight="700" fill="#38bdf8">AutonomyProof.tsx</text>
-        <text x="8" y="30" font-size="8.5" fill="#94a3b8">Proof-of-autonomy live counter</text>
-
-        <rect x="228" width="218" height="38" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="236" y="16" font-size="10" font-weight="700" fill="#38bdf8">ScenarioRunner.tsx</text>
-        <text x="236" y="30" font-size="8.5" fill="#94a3b8">One-click deterministic tests</text>
-
-        <rect y="46" width="218" height="38" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="8" y="62" font-size="10" font-weight="700" fill="#38bdf8">StateMachine.tsx</text>
-        <text x="8" y="76" font-size="8.5" fill="#94a3b8">Live graph of state transitions</text>
-
-        <rect x="228" y="46" width="218" height="38" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="236" y="62" font-size="10" font-weight="700" fill="#38bdf8">ReportTable.tsx</text>
-        <text x="236" y="76" font-size="8.5" fill="#94a3b8">Stalled expense reports ledger</text>
-
-        <rect y="92" width="218" height="38" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="8" y="108" font-size="10" font-weight="700" fill="#38bdf8">ActionLedger.tsx</text>
-        <text x="8" y="122" font-size="8.5" fill="#94a3b8">Executed &amp; blocked actions</text>
-
-        <rect x="228" y="92" width="218" height="38" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="236" y="108" font-size="10" font-weight="700" fill="#38bdf8">MetricCard.tsx</text>
-        <text x="236" y="122" font-size="8.5" fill="#94a3b8">Statistical velocity KPI display</text>
-      </g>
-
-      <!-- Client API connector -->
-      <rect x="10" y="200" width="448" height="48" rx="4" fill="#1e293b" stroke="#0ea5e9" stroke-width="1"/>
-      <text x="18" y="218" font-size="10" font-family="monospace" font-weight="700" fill="#38bdf8">api/client.ts</text>
-      <text x="18" y="236" font-size="9" fill="#cbd5e1">Polls /reports, /actions, /metrics (3s) • Dispatches manual demo triggers</text>
-    </g>
-
-    <!-- Component 2: Verification Scenarios & Edge Case Side Paths -->
-    <g transform="translate(16, 330)">
-      <rect width="468" height="310" rx="8" fill="#0f172a" stroke="#6366f1" stroke-width="1.5"/>
-      <rect width="468" height="32" rx="8" fill="#312e81"/>
-      <rect y="22" width="468" height="10" fill="#312e81"/>
-      <text x="12" y="21" font-size="13" font-weight="700" fill="#f8fafc">Adversarial &amp; Race Condition Testbeds</text>
-      <text x="456" y="21" font-size="10" font-family="monospace" fill="#c7d2fe" text-anchor="end">Verification Proofs</text>
-
-      <!-- Scenario A: Adversarial Simulation -->
-      <g transform="translate(10, 42)">
-        <rect width="448" height="118" rx="6" fill="#450a0a" fill-opacity="0.3" stroke="#ef4444" stroke-width="1.2"/>
-        <text x="10" y="20" font-size="11" font-weight="800" fill="#f87171">Adversarial Test Path (Prompt Injection / Drift)</text>
-        <text x="438" y="20" font-size="9.5" font-family="monospace" fill="#fca5a5" text-anchor="end">/api/simulate-adversarial</text>
-
-        <text x="10" y="40" font-size="9.5" fill="#cbd5e1">1. LLM proposes mutated amount: <tspan fill="#f87171" font-family="monospace">$99,999</tspan> (Actual: <tspan fill="#34d399" font-family="monospace">$750</tspan>)</text>
-        <text x="10" y="56" font-size="9.5" fill="#cbd5e1">2. Or attacker injects unauthorized domain: <tspan fill="#f87171" font-family="monospace">@external.com</tspan></text>
-        
-        <rect x="10" y="68" width="428" height="38" rx="4" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
-        <text x="18" y="84" font-size="9.5" font-weight="800" fill="#ffffff">RESULT: Intercepted by 4-Point Validator &amp; Policy Engine</text>
-        <text x="18" y="98" font-size="9" fill="#fecaca">Status: BLOCKED • Side-effect ABORTED • Written to Audit Ledger</text>
-      </g>
-
-      <!-- Scenario B: Race Condition Simulation -->
-      <g transform="translate(10, 172)">
-        <rect width="448" height="126" rx="6" fill="#1e1b4b" fill-opacity="0.4" stroke="#818cf8" stroke-width="1.2"/>
-        <text x="10" y="20" font-size="11" font-weight="800" fill="#a5b4fc">Race Condition Test Path (Agent vs Human)</text>
-        <text x="438" y="20" font-size="9.5" font-family="monospace" fill="#c7d2fe" text-anchor="end">/api/simulate-race</text>
-
-        <text x="10" y="40" font-size="9.5" fill="#cbd5e1">1. Human signs off in parallel: <tspan fill="#34d399" font-family="monospace">Pending ➔ Resolved</tspan></text>
-        <text x="10" y="56" font-size="9.5" fill="#cbd5e1">2. Agent wakes up simultaneously: <tspan fill="#fbbf24" font-family="monospace">Pending ➔ Nudged</tspan></text>
-
-        <rect x="10" y="68" width="428" height="46" rx="4" fill="#312e81" stroke="#818cf8" stroke-width="1"/>
-        <text x="18" y="84" font-size="9.5" font-weight="800" fill="#ffffff">RESULT: Conditional State Guard Mismatch Detected</text>
-        <text x="18" y="98" font-size="9" fill="#a5b4fc">Human "Resolved" wins • Agent transition SKIPPED • Invariant Preserved</text>
-      </g>
-    </g>
-
-    <!-- Component 3: Observability & OpenTelemetry Tracing -->
-    <g transform="translate(16, 654)">
-      <rect width="468" height="390" rx="8" fill="#0f172a" stroke="#475569" stroke-width="1.5"/>
-      <rect width="468" height="32" rx="8" fill="#1e293b"/>
-      <rect y="22" width="468" height="10" fill="#1e293b"/>
-      
-      <text x="12" y="21" font-size="13" font-weight="700" fill="#f8fafc">OpenTelemetryTracer &amp; Proof-of-Autonomy</text>
-      <text x="456" y="21" font-size="10" font-family="monospace" fill="#94a3b8" text-anchor="end">observability/tracer.py</text>
-
-      <text x="12" y="48" font-size="10.5" font-weight="700" fill="#cbd5e1">Root Trace: <tspan font-family="monospace" fill="#38bdf8">approval.tick</tspan> (Execution Span Waterfall)</text>
-
-      <!-- Span Tree -->
-      <g transform="translate(10, 58)">
-        <rect width="448" height="154" rx="6" fill="#090d16" stroke="#334155" stroke-width="1"/>
-        
-        <g transform="translate(10, 16)">
-          <text x="0" y="0" font-size="9" font-family="monospace" fill="#38bdf8">├─ observe</text><text x="210" y="0" font-size="8.5" fill="#94a3b8">Scan open approvals from DB</text>
-          <text x="0" y="16" font-size="9" font-family="monospace" fill="#34d399">├─ eligibility</text><text x="210" y="16" font-size="8.5" fill="#94a3b8">Evaluate stale thresholds</text>
-          <text x="0" y="32" font-size="9" font-family="monospace" fill="#a5b4fc">├─ skill.load</text><text x="210" y="32" font-size="8.5" fill="#94a3b8">Progressive disclosure &gt;= $5k</text>
-          <text x="0" y="48" font-size="9" font-family="monospace" fill="#fbbf24">├─ claim</text><text x="210" y="48" font-size="8.5" fill="#94a3b8">Atomic outbox claim (lock)</text>
-          <text x="0" y="64" font-size="9" font-family="monospace" fill="#c084fc">├─ gemini.draft</text><text x="210" y="64" font-size="8.5" fill="#94a3b8">Gemini 3.7 Flash language wording</text>
-          <text x="0" y="80" font-size="9" font-family="monospace" fill="#34d399">├─ validation</text><text x="210" y="80" font-size="8.5" fill="#94a3b8">4-point deterministic gate</text>
-          <text x="0" y="96" font-size="9" font-family="monospace" fill="#60a5fa">├─ policy.check</text><text x="210" y="96" font-size="8.5" fill="#94a3b8">Corporate governance rules</text>
-          <text x="0" y="112" font-size="9" font-family="monospace" fill="#38bdf8">├─ notification</text><text x="210" y="112" font-size="8.5" fill="#94a3b8">Deterministic dispatch simulator</text>
-          <text x="0" y="128" font-size="9" font-family="monospace" fill="#34d399">└─ state_transition</text><text x="210" y="128" font-size="8.5" fill="#94a3b8">Conditional atomic state commit</text>
-        </g>
-      </g>
-
-      <!-- Live Autonomy Metrics Grid -->
-      <text x="12" y="234" font-size="10.5" font-weight="700" fill="#cbd5e1">Proof-of-Autonomy Metrics Ledger (/api/metrics)</text>
-      
-      <g transform="translate(10, 244)">
-        <rect width="144" height="40" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="8" y="16" font-size="9" fill="#94a3b8">Reports Observed</text>
-        <text x="8" y="32" font-size="13" font-weight="800" fill="#38bdf8">Auto-Polled</text>
-
-        <rect x="152" width="144" height="40" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="160" y="16" font-size="9" fill="#94a3b8">Actions Claimed</text>
-        <text x="160" y="32" font-size="13" font-weight="800" fill="#fbbf24">Atomic Outbox</text>
-
-        <rect x="304" width="144" height="40" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="312" y="16" font-size="9" fill="#94a3b8">Notifications Sent</text>
-        <text x="312" y="32" font-size="13" font-weight="800" fill="#34d399">Dispatched</text>
-
-        <rect y="48" width="144" height="40" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="8" y="64" font-size="9" fill="#94a3b8">Blocked Actions</text>
-        <text x="8" y="80" font-size="13" font-weight="800" fill="#f87171">Safety Gated</text>
-
-        <rect x="152" y="48" width="144" height="40" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="160" y="64" font-size="9" fill="#94a3b8">Duplicates Prevented</text>
-        <text x="160" y="80" font-size="13" font-weight="800" fill="#fbbf24">Deduplicated</text>
-
-        <rect x="304" y="48" width="144" height="40" rx="4" fill="#1e293b" stroke="#334155" stroke-width="1"/>
-        <text x="312" y="64" font-size="9" fill="#94a3b8">Unsafe Skipped</text>
-        <text x="312" y="80" font-size="13" font-weight="800" fill="#a7f3d0">Race Guarded</text>
-
-        <!-- Zero Human Prompts KPI -->
-        <rect y="96" width="448" height="34" rx="4" fill="#064e3b" stroke="#10b981" stroke-width="1.5"/>
-        <text x="14" y="118" font-size="11" font-weight="800" fill="#ffffff">Human Prompts Required for Execution: <tspan fill="#34d399" font-size="14">0 (Zero)</tspan></text>
-        <text x="438" y="118" font-size="9.5" font-weight="700" fill="#6ee7b7" text-anchor="end">100% Unprompted Autonomy</text>
-      </g>
+      <rect x="0" y="80" width="492" height="54" rx="6" fill="#082f49" stroke="#0ea5e9" stroke-width="1"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#bae6fd">Firestore Transactional Outbox Pattern</text>
+      <text x="10" y="34" font-size="9.5" fill="#7dd3fc">• Atomically stages side-effect events before network calls</text>
+      <text x="10" y="48" font-size="9.5" fill="#7dd3fc">• Prevents ghost executions and dual-write divergence across failures</text>
     </g>
   </g>
 
-  <!-- ========================================================================= -->
-  <!-- CROSS-LAYER CONNECTIVITY ARROWS -->
-  <!-- ========================================================================= -->
-  <!-- Cloud Run to ApprovalEngine Main Trigger -->
-  <path d="M 376 345 L 420 345" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrowBlue)"/>
-  <rect x="375" y="328" width="44" height="16" rx="3" fill="#0284c7"/>
-  <text x="397" y="340" font-size="9" font-weight="800" fill="#ffffff" text-anchor="middle">TICK</text>
+  <!-- EXTERNAL BUSINESS SYSTEMS & TOOLS -->
+  <g transform="translate(1400, 465)" filter="url(#shadow)">
+    <rect width="520" height="210" rx="12" fill="url(#cardGrad)" stroke="#38bdf8" stroke-width="1.5"/>
+    <path d="M 0 0 L 520 0 L 520 32 L 0 32 Z" fill="#0f172a" stroke-bottom="#334155" clip-path="inset(0 0 0 0 round 12px 12px 0 0)"/>
+    <text x="14" y="21" font-size="13" font-weight="800" fill="#f8fafc">External Business Systems &amp; Tool Adapters</text>
+    
+    <g transform="translate(14, 46)">
+      <rect x="0" y="0" width="240" height="66" rx="6" fill="#1e293b" stroke="#334155"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#38bdf8">Payment &amp; Refund Gateway</text>
+      <text x="10" y="36" font-size="9.5" fill="#cbd5e1">• Executes authorized ₹ refunds</text>
+      <text x="10" y="52" font-size="9.5" fill="#94a3b8">Strictly gated by ALLOW / Human Sign-off</text>
 
-  <!-- ApprovalEngine to Firestore Read/Write -->
-  <path d="M 420 830 L 376 830" stroke="#0ea5e9" stroke-width="2.5" marker-end="url(#arrowBlue)"/>
-  <text x="398" y="822" font-size="8.5" font-weight="700" fill="#38bdf8" text-anchor="middle">ACID TXN</text>
+      <rect x="252" y="0" width="240" height="66" rx="6" fill="#1e293b" stroke="#334155"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#38bdf8">ERP &amp; General Ledger Sync</text>
+      <text x="10" y="36" font-size="9.5" fill="#cbd5e1">• Updates SAP / Oracle accounting</text>
+      <text x="10" y="52" font-size="9.5" fill="#94a3b8">Immutable journal entry mutation</text>
 
-  <!-- ApprovalEngine to Tracing Ledger -->
-  <path d="M 1440 760 L 1460 760" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowGray)"/>
-  <text x="1450" y="752" font-size="8.5" font-weight="700" fill="#94a3b8" text-anchor="middle">TRACES</text>
+      <rect x="0" y="76" width="240" height="66" rx="6" fill="#1e293b" stroke="#334155"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#38bdf8">Slack Webhook Adapter</text>
+      <text x="10" y="36" font-size="9.5" fill="#cbd5e1">• Contextual nudges &amp; escalations</text>
+      <text x="10" y="52" font-size="9.5" fill="#94a3b8">Interactive approval action buttons</text>
 
-  <!-- Frontend to FastAPI Ingress -->
-  <path d="M 1460 280 L 1450 280 L 1450 100 L 370 100 L 370 230 L 344 230" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrowBlue)" fill="none"/>
+      <rect x="252" y="76" width="240" height="66" rx="6" fill="#1e293b" stroke="#334155"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#38bdf8">SMTP Email Adapter</text>
+      <text x="10" y="36" font-size="9.5" fill="#cbd5e1">• Formal corporate sign-off emails</text>
+      <text x="10" y="52" font-size="9.5" fill="#94a3b8">Cryptographically verified headers</text>
+    </g>
+  </g>
 
-  <!-- Footer Info -->
-  <text x="40" y="1310" font-size="11" fill="#64748b">ApprovalLoop Architecture Reference • Google Cloud Run + Gemini 3.7 Flash + Cloud Firestore • Bounded Autonomous Operations</text>
-  <text x="1960" y="1310" font-size="11" font-family="monospace" fill="#64748b" text-anchor="end">Hash: approval-loop-arch-v2.1 • All repository invariants verified</text>
+  <!-- REACT 18 FRONTEND DASHBOARD -->
+  <g transform="translate(1400, 700)" filter="url(#shadow)">
+    <rect width="520" height="150" rx="10" fill="#0f172a" stroke="#818cf8" stroke-width="1.5"/>
+    <path d="M 0 0 L 520 0 L 520 26 L 0 26 Z" fill="#312e81" clip-path="inset(0 0 0 0 round 10px 10px 0 0)"/>
+    <text x="12" y="18" font-size="11.5" font-weight="800" fill="#e0e7ff">React 18 Control Plane Dashboard (Vite + Tailwind + TypeScript)</text>
+    <g transform="translate(14, 38)">
+      <text x="0" y="14" font-size="10.5" fill="#cbd5e1">• Real-time Action Ledger &amp; Live Proof-of-Autonomy Metrics</text>
+      <text x="0" y="32" font-size="10.5" fill="#cbd5e1">• Human Approval Queue with 1-Click Sign-Off / Reject buttons</text>
+      <text x="0" y="50" font-size="10.5" fill="#cbd5e1">• Agent Fleet Capability Inspector &amp; Agent Registry Live Viewer</text>
+      <text x="0" y="68" font-size="10.5" fill="#cbd5e1">• Interactive 3-Tier Scenario Runner (Case A, Case B, Case C)</text>
+      <text x="0" y="86" font-size="10.5" fill="#cbd5e1">• Memory Bank Viewer with session inspection &amp; audit history</text>
+    </g>
+  </g>
+
+  <!-- BLOCKED ACTION SINK -->
+  <g transform="translate(1400, 875)" filter="url(#shadow)">
+    <rect width="520" height="125" rx="10" fill="#4c0519" stroke="#ef4444" stroke-width="1.5"/>
+    <path d="M 0 0 L 520 0 L 520 26 L 0 26 Z" fill="#991b1b" clip-path="inset(0 0 0 0 round 10px 10px 0 0)"/>
+    <text x="12" y="18" font-size="11.5" font-weight="800" fill="#fee2e2">Blocked Action Sink &amp; Security Rejection Handler</text>
+    <g transform="translate(14, 38)">
+      <text x="0" y="16" font-size="11" font-weight="700" fill="#fca5a5">STOPS EXECUTION IMMEDIATELY:</text>
+      <text x="0" y="36" font-size="10.5" fill="#fecaca">• Denied actions (Amount &gt; ₹25,000 or unauthorized tool request)</text>
+      <text x="0" y="54" font-size="10.5" fill="#fecaca">• Model Armor prompt/response violations or replay attacks</text>
+      <text x="0" y="72" font-size="10.5" fill="#fecaca">• Emits audit record → 0 side effects dispatched</text>
+    </g>
+  </g>
+
+  <!-- STATE, MEMORY & AUDIT LEDGER (PERSISTENCE LAYER) -->
+  <g transform="translate(50, 1050)" filter="url(#shadow)">
+    <rect width="1900" height="180" rx="14" fill="#0b1329" stroke="#3b82f6" stroke-width="2"/>
+    <path d="M 0 0 L 1900 0 L 1900 32 L 0 32 Z" fill="#1e3a8a" clip-path="inset(0 0 0 0 round 14px 14px 0 0)"/>
+    <text x="20" y="22" font-size="13" font-weight="800" fill="#eff6ff">6. STATE, MEMORY &amp; AUDIT LEDGER (Google Cloud Firestore + OpenTelemetry)</text>
+    
+    <g transform="translate(20, 46)">
+      <rect x="0" y="0" width="440" height="110" rx="8" fill="#1e293b" stroke="#334155"/>
+      <text x="14" y="22" font-size="12" font-weight="700" fill="#38bdf8">Persistent Memory Bank</text>
+      <text x="14" y="42" font-size="10.5" fill="#cbd5e1">• Cross-session workflow memories</text>
+      <text x="14" y="60" font-size="10.5" fill="#cbd5e1">• Action history &amp; previous decisions</text>
+      <text x="14" y="78" font-size="10.5" fill="#cbd5e1">• Preserves state across container reboots</text>
+      <text x="14" y="96" font-size="10" font-family="monospace" fill="#94a3b8">Collection: `workflow_memories`</text>
+
+      <rect x="465" y="0" width="440" height="110" rx="8" fill="#1e293b" stroke="#334155"/>
+      <text x="14" y="22" font-size="12" font-weight="700" fill="#38bdf8">Agent Identity &amp; Capability Registry</text>
+      <text x="14" y="42" font-size="10.5" fill="#cbd5e1">• Registered agents, versions, capabilities</text>
+      <text x="14" y="60" font-size="10.5" fill="#cbd5e1">• Allowed actions &amp; assigned policy profiles</text>
+      <text x="14" y="78" font-size="10.5" fill="#cbd5e1">• HMAC secret keys &amp; risk classifications</text>
+      <text x="14" y="96" font-size="10" font-family="monospace" fill="#94a3b8">Collection: `agent_registry`</text>
+
+      <rect x="930" y="0" width="450" height="110" rx="8" fill="#1e293b" stroke="#334155"/>
+      <text x="14" y="22" font-size="12" font-weight="700" fill="#38bdf8">OpenTelemetry Distributed Traces</text>
+      <text x="14" y="42" font-size="10.5" fill="#cbd5e1">• Correlated spans across entire lifecycle</text>
+      <text x="14" y="60" font-size="10.5" fill="#cbd5e1">• `trace_id`, `proposal_id`, `task_id` propagation</text>
+      <text x="14" y="78" font-size="10.5" fill="#cbd5e1">• Automatic secret &amp; credential redaction</text>
+      <text x="14" y="96" font-size="10" font-family="monospace" fill="#94a3b8">observe → draft → policy → execute</text>
+
+      <rect x="1405" y="0" width="470" height="110" rx="8" fill="#1e293b" stroke="#334155"/>
+      <text x="14" y="22" font-size="12" font-weight="700" fill="#38bdf8">AgBOM &amp; Immutable Audit Trail</text>
+      <text x="14" y="42" font-size="10.5" fill="#cbd5e1">• Agent Bill of Materials (declared inventory)</text>
+      <text x="14" y="60" font-size="10.5" fill="#cbd5e1">• Cryptographic audit records of all decisions</text>
+      <text x="14" y="78" font-size="10.5" fill="#cbd5e1">• Full forensic causality ("Why did it act?")</text>
+      <text x="14" y="96" font-size="10" font-family="monospace" fill="#94a3b8">Collection: `audit_ledger`, `async_tasks`</text>
+    </g>
+  </g>
+
+  <!-- CONNECTING ARROWS -->
+  <path d="M 320 280 L 360 280" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+  <path d="M 490 450 L 490 480" stroke="#c084fc" stroke-width="2" marker-end="url(#arrowPurple)"/>
+  <path d="M 380 570 L 380 600" stroke="#c084fc" stroke-width="2" marker-end="url(#arrowPurple)"/>
+  <path d="M 380 750 L 380 780" stroke="#c084fc" stroke-width="2" marker-end="url(#arrowPurple)"/>
+  <path d="M 380 870 L 380 890" stroke="#c084fc" stroke-width="2" marker-end="url(#arrowPurple)"/>
+  <path d="M 620 945 L 660 945 L 660 305 L 710 305" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrowCyan)"/>
+  <path d="M 1010 400 L 1010 430" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+
+  <path d="M 800 570 L 800 645 L 1360 645 L 1360 310 L 1400 310" stroke="#34d399" stroke-width="2.5" stroke-dasharray="6,3" marker-end="url(#arrowGreen)"/>
+  <path d="M 890 570 L 890 670" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arrowAmber)"/>
+  <path d="M 1150 710 L 1380 710 L 1380 340 L 1400 340" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+
+  <path d="M 1200 570 L 1200 620 L 1350 620 L 1350 930 L 1400 930" stroke="#f87171" stroke-width="2.5" marker-end="url(#arrowRose)"/>
+  <path d="M 1150 760 L 1330 760 L 1330 950 L 1400 950" stroke="#f87171" stroke-width="2.5" marker-end="url(#arrowRose)"/>
+
+  <path d="M 1660 440 L 1660 465" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+  <path d="M 1010 1000 L 1010 1050" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+  <path d="M 1660 675 L 1660 1050" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#arrowCyan)"/>
+
+  <!-- EXAMPLE SCENARIO ANNOTATIONS -->
+  <g transform="translate(50, 1245)">
+    <g transform="translate(0, 0)">
+      <rect width="610" height="50" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1"/>
+      <text x="12" y="20" font-size="11" font-weight="800" fill="#a7f3d0">CASE A (LOW RISK): <tspan font-weight="500" fill="#ecfdf5">Finance Agent → ₹2,000 refund proposal</tspan></text>
+      <text x="12" y="38" font-size="10.5" fill="#6ee7b7">Policy: &lt; ₹5,000 → <tspan font-weight="800">ALLOW</tspan> → Leased Worker dispatches refund → Audit Ledger logged</text>
+    </g>
+
+    <g transform="translate(640, 0)">
+      <rect width="620" height="50" rx="8" fill="#451a03" stroke="#fbbf24" stroke-width="1"/>
+      <text x="12" y="20" font-size="11" font-weight="800" fill="#fde68a">CASE B (MEDIUM RISK): <tspan font-weight="500" fill="#fffbeb">Finance Agent → ₹20,000 refund proposal</tspan></text>
+      <text x="12" y="38" font-size="10.5" fill="#fcd34d">Policy: ₹5,000–₹25,000 → <tspan font-weight="800">HUMAN APPROVAL</tspan> → Pauses in Memory → Operator Approves → Executes</text>
+    </g>
+
+    <g transform="translate(1290, 0)">
+      <rect width="610" height="50" rx="8" fill="#4c0519" stroke="#f87171" stroke-width="1"/>
+      <text x="12" y="20" font-size="11" font-weight="800" fill="#fecaca">CASE C (HIGH RISK / DENIED): <tspan font-weight="500" fill="#fff1f2">Finance Agent → ₹100,000 refund proposal</tspan></text>
+      <text x="12" y="38" font-size="10.5" fill="#fca5a5">Policy: &gt; ₹25,000 → <tspan font-weight="800">DENY</tspan> → Blocked deterministically → 0 Side effects dispatched → Logged</text>
+    </g>
+  </g>
+
+  <!-- FOOTER -->
+  <text x="50" y="1325" font-size="11" fill="#64748b">ApprovalLoop Governed Architecture • Google Cloud Run + Gemini 3.7 Flash (`google-genai`) + Google Cloud Model Armor + Firestore • Invariants 100% Verified</text>
+  <text x="1950" y="1325" font-size="11" font-family="monospace" fill="#64748b" text-anchor="end">Deterministic Governance Boundary: Policy Engine v3 • Replay Protected HMAC/OIDC</text>
 </svg>
