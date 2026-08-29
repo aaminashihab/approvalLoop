@@ -24,7 +24,7 @@ class GeminiAgentDrafter:
     """
     def __init__(self, api_key: str | None = None, model: str | None = None, guardrail: Optional[ModelSafetyGuardrail] = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+        self.model = model or os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
         self.guardrail = guardrail or ModelSafetyGuardrail()
         self.client = None
         if self.api_key:

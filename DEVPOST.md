@@ -31,7 +31,7 @@ ApprovalLoop was built on a fortified foundational principle:
 
 ApprovalLoop acts as the **Fortified Execution Governance Gateway** for enterprise AI agent fleets:
 
-1. **Gemini Agent Fleet:** Orchestrates specialized institutional agents (**Finance Agent**, **Support Agent**, **Sales Agent**) built with **Google Gemini 3.5 Flash** (`gemini-3.5-flash`) and the **Google GenAI SDK** (`google-genai`).
+1. **Gemini Agent Fleet:** Orchestrates specialized institutional agents (**Finance Agent**, **Support Agent**, **Sales Agent**) built with **Google Gemini 3.7 Flash** (`gemini-3.7-flash`) and the **Google GenAI SDK** (`google-genai`).
 2. **Zero-Trust Agent Identity:** Authenticates agent requests using **HMAC-SHA256** cryptographic signatures and **Google Cloud IAM OIDC** tokens, checking against a Firestore-backed **Agent Registry** capability whitelist.
 3. **Google Cloud Model Armor Integration:** Intercepts prompt injections, adversarial overrides, and secret leakage before and after LLM inference via official `google-cloud-modelarmor` APIs.
 4. **Deterministic Policy Engine:** Enforces immutable, reproducible, versioned policy profiles (`finance-v3`, `support-v1`, `sales-v1`) with mathematical `Decimal` precision:
@@ -48,7 +48,7 @@ ApprovalLoop acts as the **Fortified Execution Governance Gateway** for enterpri
 
 ## 🏛️ Architecture & Tech Stack
 
-- **Model:** Google Gemini 3.5 Flash (`gemini-3.5-flash`)
+- **Model:** Google Gemini 3.7 Flash (`gemini-3.7-flash`)
 - **Agent Framework:** Google GenAI SDK (`google-genai` Python library)
 - **Safety Guardrail:** Google Cloud Model Armor API (`google-cloud-modelarmor`)
 - **Backend Service:** FastAPI + Python 3.10 with strict Pydantic v2, `Decimal` monetary precision, OpenTelemetry tracer

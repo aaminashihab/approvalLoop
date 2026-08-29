@@ -4,9 +4,7 @@
 
 > [!IMPORTANT]
 > **Core Architectural Invariant**:
-> **AI proposes. Deterministic policy decides. Infrastructure executes.**
-
-ApprovalLoop bridges autonomous intelligence (**Google Gemini 3.5+**, **Google Agent Framework**) with deterministic corporate governance, zero-trust cryptographic identity, persistent memory banks, leased async execution, and mathematical safety gates.
+> **AI proposes. Deterministic policy decides. Infrastructure executes.**ApprovalLoop bridges autonomous intelligence (**Google Gemini 3.7+**, **Google Agent Framework**) with deterministic corporate governance, zero-trust cryptographic identity, persistent memory banks, leased async execution, and mathematical safety gates.
 
 ---
 
@@ -30,7 +28,7 @@ ApprovalLoop enforces an absolute separation of concerns:
 
 | Responsibility | Component | Implementation |
 | :--- | :--- | :--- |
-| **Reasoning & Proposals** | **Gemini Agent Fleet** | Gemini 3.5 via Google GenAI SDK (`google-genai`) emits structured `AgentActionProposal` |
+| **Reasoning & Proposals** | **Gemini Agent Fleet** | Gemini 3.7 via Google GenAI SDK (`google-genai`) emits structured `AgentActionProposal` |
 | **Identity & Authentication** | **Agent Identity Layer** | HMAC-SHA256 & Google Cloud IAM OIDC zero-trust token verification with replay protection |
 | **Inline Safety Layer** | **Google Cloud Model Armor** | Official Google Cloud Model Armor API (`google-cloud-modelarmor`) inspecting pre-LLM prompts (`SanitizeUserPrompt`) and post-LLM responses (`SanitizeModelResponse`) |
 | **Parameter Integrity** | **4-Point Safety Validator** | Deterministic mathematical checks (exact Decimal precision, ID matching) |
@@ -53,11 +51,11 @@ ApprovalLoop enforces an absolute separation of concerns:
                                                 │
                                                 ▼
                                              GEMINI
-                                 (Google GenAI SDK - Gemini 3.5)
+                                 (Google GenAI SDK - Gemini 3.7)
                                                 │
                                                 ▼
                                     GOOGLE CLOUD MODEL ARMOR
-                              (Post-LLM: SanitizeModelResponse API)
+                               (Post-LLM: SanitizeModelResponse API)
                                                 │
                                                 ▼
                                           AGENT GATEWAY
@@ -86,7 +84,7 @@ ApprovalLoop enforces an absolute separation of concerns:
 
 ## 4. Gemini Agent Fleet
 
-ApprovalLoop orchestrates a scalable network of specialized institutional agents built on the **Google Agent Framework (Google GenAI SDK `google-genai`)** with **Gemini 3.5 Flash**:
+ApprovalLoop orchestrates a scalable network of specialized institutional agents built on the **Google Agent Framework (Google GenAI SDK `google-genai`)** with **Gemini 3.7 Flash**:
 
 1. **Finance Agent (`finance-agent` v1.2.0):** Evaluates corporate refund claims, invoice anomalies, and stalled expense approvals. Formulates structured proposals (`issue_refund`, `approve_expense`, `escalate_stalled_approval`).
 2. **Support Agent (`support-agent` v1.1.0):** Evaluates customer SLA disputes and service outages. Formulates structured compensation proposals (`credit_account`, `escalate_ticket`, `sla_override`).
@@ -208,7 +206,7 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 ## 11. Implemented vs Roadmap
 
 ### IMPLEMENTED & VERIFIED
-- [x] Autonomous Agent wake-up & Gemini 3.5 reasoning
+- [x] Autonomous Agent wake-up & Gemini 3.7 reasoning
 - [x] Gemini structured proposal generation via Pydantic
 - [x] Agent Registry with status, capabilities & allowed actions
 - [x] Zero-Trust Identity Provider (HMAC-SHA256 + GCP OIDC + Replay Protection)
@@ -256,7 +254,7 @@ Create a `.env` file or export:
 APP_ENV=demo
 GOOGLE_CLOUD_PROJECT=approval-loop-hackathon
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.5-flash
+GEMINI_MODEL=gemini-3.7-flash
 SCHEDULER_API_KEY=dev-scheduler-secret-key
 AGENT_IDENTITY_SECRET=fleet-identity-master-secret-key-2026
 ALLOW_INSECURE_DEMO_AUTH=false

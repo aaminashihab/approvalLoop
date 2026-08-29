@@ -76,7 +76,7 @@ def test_framework_agent_instantiation(identity_provider):
     assert finance_agent.agent_version == "1.2.0"
     assert support_agent.agent_id == "support-agent"
     assert sales_agent.agent_id == "sales-agent"
-    assert finance_agent.model == "gemini-3.5-flash"
+    assert finance_agent.model == "gemini-3.7-flash"
 
 
 # 2. Structured Proposal Formulation

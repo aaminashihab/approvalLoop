@@ -7,7 +7,7 @@ set -e
 PROJECT_ID=${GOOGLE_CLOUD_PROJECT:-""}
 REGION=${REGION:-"us-central1"}
 SERVICE_NAME="approval-loop"
-GEMINI_MODEL=${GEMINI_MODEL:-"gemini-3.5-flash"}
+GEMINI_MODEL=${GEMINI_MODEL:-"gemini-3.7-flash"}
 APP_ENV=${APP_ENV:-"demo"} # "demo" | "production"
 SCHEDULER_API_KEY=${SCHEDULER_API_KEY:-"dev-scheduler-secret-key"}
 USE_SECRET_MANAGER=${USE_SECRET_MANAGER:-"false"}

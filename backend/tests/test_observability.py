@@ -38,7 +38,7 @@ def test_tracer_error_capture():
 def test_agbom_metadata_structure():
     agbom = get_agbom_inventory()
     assert agbom["agent_name"] == "ApprovalLoop"
-    assert agbom["model"] == "gemini-3.5-flash"
+    assert agbom["model"] == "gemini-3.7-flash"
     assert agbom["framework"] == "Google GenAI SDK (google-genai)"
     assert agbom["runtime"] == "Google Cloud Run"
     assert "deterministic_state_machine" in agbom["safety_mechanisms"]

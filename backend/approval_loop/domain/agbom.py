@@ -12,7 +12,7 @@ class AgentBillOfMaterials(BaseModel):
     version: str = "2.1.0"
     track: str = "Taskmaster"
     environment: str = "demo"
-    model: str = "gemini-3.5-flash"
+    model: str = "gemini-3.7-flash"
     framework: str = "Google GenAI SDK (google-genai)"
     runtime: str = "Google Cloud Run"
     project_id: str = "approval-loop-hackathon"

@@ -73,9 +73,9 @@ export const ActionLedger: React.FC<ActionLedgerProps> = ({ actions }) => {
                     </div>
                   </div>
 
-                  {/* 2. Gemini 3.5 Drafter */}
+                  {/* 2. Gemini 3.7 Drafter */}
                   <div className="p-2 rounded bg-slate-950/80 border border-slate-800/60">
-                    <div className="text-slate-400 text-[10px] uppercase font-semibold">2. Gemini 3.5 Drafter</div>
+                    <div className="text-slate-400 text-[10px] uppercase font-semibold">2. Gemini 3.7 Drafter</div>
                     <div className="font-bold text-sky-400 flex items-center gap-1 mt-1 font-mono">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Wording Drafted
                     </div>

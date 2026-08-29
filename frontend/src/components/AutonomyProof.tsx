@@ -71,7 +71,7 @@ export const AutonomyProof: React.FC<AutonomyProofProps> = ({ metrics, isLiveMod
           </div>
           <div className="p-2 bg-slate-900 rounded border border-slate-800 text-slate-300 flex flex-col items-center justify-center">
             <span className="text-violet-400 font-bold text-[11px]">3. DRAFT</span>
-            <span className="text-[10px] text-slate-500">Gemini 3.5 Flash</span>
+            <span className="text-[10px] text-slate-500">Gemini 3.7 Flash</span>
           </div>
           <div className="p-2 bg-slate-900 rounded border border-slate-800 text-slate-300 flex flex-col items-center justify-center">
             <span className="text-emerald-400 font-bold text-[11px]">4. VERIFY</span>

@@ -62,7 +62,7 @@ class Settings(BaseModel):
         default_factory=lambda: os.getenv("GEMINI_API_KEY")
     )
     gemini_model: str = Field(
-        default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+        default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
     )
     allow_insecure_demo_auth: bool = Field(
         default_factory=lambda: os.getenv("ALLOW_INSECURE_DEMO_AUTH", "false").lower() in ("true", "1", "yes")

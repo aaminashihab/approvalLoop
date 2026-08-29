@@ -4,21 +4,21 @@ from decimal import Decimal
 from approval_loop.domain.models import ActionType
 from approval_loop.agent.drafter import GeminiAgentDrafter, DraftProposalResponse
 
-def test_drafter_default_gemini_35_model():
-    """Verify Gemini 3.5 is the default model."""
+def test_drafter_default_gemini_37_model():
+    """Verify Gemini 3.7 is the default model."""
     drafter = GeminiAgentDrafter()
-    assert drafter.model == "gemini-3.5-flash"
+    assert drafter.model == "gemini-3.7-flash"
 
 def test_drafter_custom_model_configuration(monkeypatch):
     """Verify GEMINI_MODEL environment variable overrides the model."""
-    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.5-flash-preview")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.7-flash-preview")
     drafter = GeminiAgentDrafter()
-    assert drafter.model == "gemini-3.5-flash-preview"
+    assert drafter.model == "gemini-3.7-flash-preview"
 
 def test_drafter_explicit_model_argument():
     """Verify explicit model constructor parameter takes precedence."""
-    drafter = GeminiAgentDrafter(model="gemini-3.5-flash-custom")
-    assert drafter.model == "gemini-3.5-flash-custom"
+    drafter = GeminiAgentDrafter(model="gemini-3.7-flash-custom")
+    assert drafter.model == "gemini-3.7-flash-custom"
 
 def test_drafter_nudge_fallback_wording():
     """Verify deterministic fallback wording for nudge actions when offline."""

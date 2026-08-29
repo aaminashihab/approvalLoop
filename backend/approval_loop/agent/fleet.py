@@ -12,7 +12,7 @@ from approval_loop.guardrails.safety_guardrail import ModelSafetyGuardrail
 logger = logging.getLogger("approval_loop.fleet")
 
 class FleetAgentProposalResponse(BaseModel):
-    """Structured LLM response schema from Gemini 3.5."""
+    """Structured LLM response schema from Gemini 3.7."""
     action_name: str
     target_resource_id: str
     amount: Optional[str] = None
@@ -24,7 +24,7 @@ class FleetAgentProposalResponse(BaseModel):
 
 class BaseFleetAgent:
     """
-    Base Institutional Agent powered by Google GenAI SDK (Gemini 3.5).
+    Base Institutional Agent powered by Google GenAI SDK (Gemini 3.7).
     
     Principles:
     1. AI proposes. Deterministic policy decides. Infrastructure executes.
@@ -44,7 +44,7 @@ class BaseFleetAgent:
         self.agent_version = agent_version
         self.identity_provider = identity_provider
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+        self.model = model or os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
         self.guardrail = guardrail or ModelSafetyGuardrail()
         self.client = None
         if self.api_key:
