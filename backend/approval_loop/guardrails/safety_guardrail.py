@@ -86,23 +86,36 @@ class ModelSafetyGuardrail:
         self.model_armor_client = model_armor_client
 
         if self.enabled and self.model_armor_client is None:
-            try:
-                import google.auth
-                from google.auth.exceptions import DefaultCredentialsError
+            # Check for local Application Default Credentials or Cloud Run environment
+            adc_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            standard_gcp_path = os.path.expanduser("~/.config/gcloud/application_default_credentials.json")
+            win_gcp_path = os.path.join(os.getenv("APPDATA", ""), "gcloud", "application_default_credentials.json") if os.getenv("APPDATA") else ""
+            has_local_adc = bool(
+                (adc_path and os.path.exists(adc_path)) or
+                os.path.exists(standard_gcp_path) or
+                (win_gcp_path and os.path.exists(win_gcp_path)) or
+                os.getenv("K_SERVICE")  # Google Cloud Run
+            )
+            if has_local_adc:
                 try:
-                    credentials, _ = google.auth.default()
-                except (DefaultCredentialsError, Exception):
-                    credentials = None
+                    import google.auth
+                    from google.auth.exceptions import DefaultCredentialsError
+                    try:
+                        credentials, _ = google.auth.default()
+                    except (DefaultCredentialsError, Exception):
+                        credentials = None
 
-                if credentials:
-                    from google.cloud import modelarmor_v1
-                    from google.api_core.client_options import ClientOptions
-                    client_opts = ClientOptions(api_endpoint=f"modelarmor.{self.location}.rep.googleapis.com")
-                    self.model_armor_client = modelarmor_v1.ModelArmorClient(credentials=credentials, client_options=client_opts)
-                else:
+                    if credentials:
+                        from google.cloud import modelarmor_v1
+                        from google.api_core.client_options import ClientOptions
+                        client_opts = ClientOptions(api_endpoint=f"modelarmor.{self.location}.rep.googleapis.com")
+                        self.model_armor_client = modelarmor_v1.ModelArmorClient(credentials=credentials, client_options=client_opts)
+                    else:
+                        self.model_armor_client = None
+                except Exception as e:
+                    logger.warning("Could not initialize Google Cloud ModelArmorClient: %s", str(e))
                     self.model_armor_client = None
-            except Exception as e:
-                logger.warning("Could not initialize Google Cloud ModelArmorClient: %s", str(e))
+            else:
                 self.model_armor_client = None
 
     def _is_threat_match(self, match_state: Any) -> bool:
