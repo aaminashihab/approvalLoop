@@ -251,4 +251,4 @@ With `USE_SECRET_MANAGER=true`, secrets are read from Secret Manager (`gemini-ap
 
 ## License
 
-No license file has been added yet, so all rights are reserved by default. Add a `LICENSE` file (for example Apache-2.0 or MIT) before others reuse the code.
+This project is licensed under the [Apache License 2.0](LICENSE).
