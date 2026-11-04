@@ -246,7 +246,6 @@ With `USE_SECRET_MANAGER=true`, secrets are read from Secret Manager (`gemini-ap
 
 ## Further reading
 
-- `docs/STUDY_GUIDE.md`: a guided walk through the code, with exercises and a plan for extending it into a real multi-agent system.
 - `paper/approvalloop.pdf`: design, evaluation and the defects found and fixed.
 
 ## License
