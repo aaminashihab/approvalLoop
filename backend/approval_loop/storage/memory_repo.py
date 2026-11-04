@@ -16,6 +16,11 @@ class InMemoryRepository(BaseRepository):
         self.workflow_memories: dict[str, Any] = {}
         self.async_tasks: dict[str, Any] = {}
         self.async_idempotency_index: dict[str, str] = {}
+        # Secondary indexes so approvals and the pending queue do not scan every workflow.
+        self._wf_by_action: dict[str, str] = {}
+        self._wf_state: dict[str, str] = {}
+        self._wf_ids_by_state: dict[str, set[str]] = {}
+        self._wf_ids_by_agent: dict[str, set[str]] = {}
         self._lock = threading.Lock()
 
     def get_report(self, report_id: str) -> ExpenseReport | None:
@@ -144,9 +149,37 @@ class InMemoryRepository(BaseRepository):
             return list(self.agents.values())
 
     # Memory Bank Operations
+    @staticmethod
+    def _state_of(record: Any) -> str:
+        st = getattr(record, "state", None)
+        return getattr(st, "value", str(st))
+
+    @staticmethod
+    def _action_ids_of(record: Any) -> set[str]:
+        ids = {getattr(record, "current_action_id", None)}
+        approval = getattr(record, "approval_record", None)
+        ids.add(getattr(approval, "action_id", None))
+        meta = getattr(record, "metadata", None) or {}
+        ids.add((meta.get("pending_action") or {}).get("action_id"))
+        return {i for i in ids if i}
+
+    def _store_workflow_locked(self, record: Any):
+        wid = record.workflow_id
+        old = self._wf_state.get(wid)
+        new = self._state_of(record)
+        if old != new:
+            if old is not None:
+                self._wf_ids_by_state.get(old, set()).discard(wid)
+            self._wf_ids_by_state.setdefault(new, set()).add(wid)
+            self._wf_state[wid] = new
+        for aid in self._action_ids_of(record):
+            self._wf_by_action[aid] = wid
+        self._wf_ids_by_agent.setdefault(getattr(record, "agent_id", None), set()).add(wid)
+        self.workflow_memories[wid] = record
+
     def save_workflow_memory(self, record: Any):
         with self._lock:
-            self.workflow_memories[record.workflow_id] = record
+            self._store_workflow_locked(record)
 
     def get_workflow_memory(self, workflow_id: str) -> Any | None:
         with self._lock:
@@ -154,12 +187,28 @@ class InMemoryRepository(BaseRepository):
 
     def list_workflow_memories(self, agent_id: Optional[str] = None, state: Optional[str] = None) -> list[Any]:
         with self._lock:
-            records = list(self.workflow_memories.values())
-            if agent_id:
-                records = [r for r in records if getattr(r, "agent_id", None) == agent_id]
-            if state:
-                records = [r for r in records if getattr(getattr(r, "state", None), "value", str(getattr(r, "state", None))) == state]
-            return records
+            if state and agent_id:
+                ids = self._wf_ids_by_state.get(state, set()) & self._wf_ids_by_agent.get(agent_id, set())
+            elif state:
+                ids = self._wf_ids_by_state.get(state, set())
+            elif agent_id:
+                ids = self._wf_ids_by_agent.get(agent_id, set())
+            else:
+                return list(self.workflow_memories.values())
+            return [self.workflow_memories[w] for w in ids]
+
+    def find_workflow_memory_by_action_id(self, action_id: str) -> Any | None:
+        with self._lock:
+            wid = self._wf_by_action.get(action_id)
+            return self.workflow_memories.get(wid) if wid else None
+
+    def compare_and_set_workflow_memory(self, record: Any, expected_state: str) -> bool:
+        with self._lock:
+            current = self.workflow_memories.get(record.workflow_id)
+            if current is None or self._state_of(current) != expected_state:
+                return False
+            self._store_workflow_locked(record)
+            return True
 
     # Async Task Operations
     def save_async_task(self, task: Any):

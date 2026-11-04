@@ -107,21 +107,42 @@ export interface GatewayDecision {
   details?: Record<string, any>;
 }
 
+/** An agent's proposed action, as serialized by AgentActionProposal.to_dict(). */
+export interface ActionProposal {
+  proposal_id: string;
+  workflow_id: string;
+  agent_id: string;
+  agent_version?: string;
+  action_name: string;
+  target_resource_id: string;
+  amount?: string | null;
+  currency: string;
+  recipient: string;
+  justification: string;
+  parameters: Record<string, any>;
+  proposed_at: string;
+}
+
+/** Result of executing an authorized action (appended to WorkflowMemoryRecord.tool_results). */
+export interface ExecutionResult {
+  executed: boolean;
+  notification_id?: string | null;
+  operator?: string | null;
+  error?: string | null;
+  executed_at?: string | null;
+}
+
+/** Response body of POST /gateway/actions/{id}/approve and /reject. */
+export interface HumanDecisionResponse {
+  message: string;
+  decision: GatewayDecision;
+  /** Present on approvals only. The approval is recorded even when execution fails. */
+  execution?: { executed: boolean; receipt_id?: string | null; error?: string | null };
+}
+
 export interface PendingAction {
   action_id: string;
-  proposal: {
-    proposal_id: string;
-    workflow_id: string;
-    agent_id: string;
-    action_name: string;
-    target_resource_id: string;
-    amount?: string | null;
-    currency: string;
-    recipient: string;
-    justification: string;
-    parameters: Record<string, any>;
-    proposed_at: string;
-  };
+  proposal: ActionProposal;
   decision: GatewayDecision;
   status: string;
   created_at: string;
@@ -133,14 +154,16 @@ export interface WorkflowMemoryRecord {
   workflow_id: string;
   agent_id: string;
   session_id: string;
-  state: 'initialized' | 'running' | 'paused_for_approval' | 'approved' | 'rejected' | 'completed' | 'failed';
+  state: 'initialized' | 'running' | 'paused_for_approval' | 'approved' | 'rejected' | 'completed' | 'failed' | 'denied';
   policy_version?: string | null;
-  action_history: any[];
-  previous_decisions: any[];
-  tool_results: any[];
+  current_action_id?: string | null;
+  action_history: ActionProposal[];
+  previous_decisions: GatewayDecision[];
+  tool_results: ExecutionResult[];
   approval_record: {
     required: boolean;
     status: string;
+    action_id?: string | null;
     requested_at?: string | null;
     decided_at?: string | null;
     decided_by?: string | null;

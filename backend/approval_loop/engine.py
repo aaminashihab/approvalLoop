@@ -217,6 +217,9 @@ class ApprovalEngine:
                     with self.tracer.start_span("notification", {"recipient": envelope.recipient, "report_id": report.report_id}):
                         delivery_ok, notif_id, err = self.worker.send(envelope, idempotency_key=active_action.idempotency_key)
                         if not delivery_ok:
+                            # Persist the draft, envelope and validator results before recording the failure:
+                            # a database-backed repository does not see in-memory changes to this object.
+                            self.repo.save_action(active_action)
                             failed_action = self.repo.mark_failed(active_action.action_id, err or "Delivery failed")
                             processed_actions.append(failed_action)
                             continue
@@ -225,6 +228,7 @@ class ApprovalEngine:
                     active_action.notification_id = notif_id
                     active_action.status = ActionStatus.SENT
                     self.total_sent += 1
+                    self.repo.save_action(active_action)
 
                     # 9. CONDITIONAL STATE TRANSITION: Race-Safe Invariant
                     with self.tracer.start_span("state_transition", {"report_id": report.report_id}):

@@ -56,36 +56,62 @@ class BaseRepository(ABC):
         """
         pass
 
+    # Agent registry, Memory Bank and async task storage. These are abstract on purpose: a silent no-op
+    # default once let a backend "store" workflows that could never be listed again.
     # Agent Registry Extensions
+    @abstractmethod
     def save_agent_registration(self, agent: Any):
         pass
 
+    @abstractmethod
     def get_agent_registration(self, agent_id: str) -> Any | None:
-        return None
+        pass
 
+    @abstractmethod
     def list_agent_registrations(self) -> list[Any]:
-        return []
+        pass
 
     # Memory Bank Extensions
+    @abstractmethod
     def save_workflow_memory(self, record: Any):
         pass
 
+    @abstractmethod
     def get_workflow_memory(self, workflow_id: str) -> Any | None:
-        return None
+        pass
 
+    @abstractmethod
     def list_workflow_memories(self, agent_id: Optional[str] = None, state: Optional[str] = None) -> list[Any]:
-        return []
+        pass
+
+    @abstractmethod
+    def find_workflow_memory_by_action_id(self, action_id: str) -> Any | None:
+        """Indexed lookup of the workflow that owns a pending/decided action (no full scan)."""
+        pass
+
+    @abstractmethod
+    def compare_and_set_workflow_memory(self, record: Any, expected_state: str) -> bool:
+        """
+        Atomically stores `record` only if the stored workflow is still in `expected_state`.
+        Returns False (and writes nothing) if another caller changed it first. This is what
+        makes a human approval single-winner across processes, not just within one.
+        """
+        pass
 
     # Async Task Storage Extensions
+    @abstractmethod
     def save_async_task(self, task: Any):
         pass
 
+    @abstractmethod
     def get_async_task(self, task_id: str) -> Any | None:
-        return None
+        pass
 
+    @abstractmethod
     def get_async_task_by_idempotency_key(self, idempotency_key: str) -> Any | None:
-        return None
+        pass
 
+    @abstractmethod
     def list_async_tasks(self, status: Optional[str] = None) -> list[Any]:
-        return []
+        pass
 

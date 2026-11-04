@@ -5,7 +5,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM python:3.10-slim
+FROM python:3.12-slim
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
@@ -17,7 +17,12 @@ COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/approval_loop /app/approval_loop
+# SkillRegistry resolves skills three levels above its module, which is /skills in this image.
+COPY skills /skills
 COPY --from=frontend-builder /app/frontend/dist /app/static
+
+RUN useradd --system --uid 10001 --no-create-home appuser
+USER appuser
 
 EXPOSE 8080
 

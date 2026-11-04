@@ -18,8 +18,8 @@ class AgentBillOfMaterials(BaseModel):
     project_id: str = "approval-loop-hackathon"
     trigger: str = "Google Cloud Scheduler (* * * * *)"
     data_sources: list[str] = Field(default_factory=lambda: ["expense_reports", "approver_registry", "agent_registry", "workflow_memories"])
-    state_store: str = "Google Cloud Firestore"
-    tools: list[str] = Field(default_factory=lambda: ["notification_worker", "firestore_transaction_outbox", "payment_gateway", "erp_ledger_sync"])
+    state_store: str = "PostgreSQL"
+    tools: list[str] = Field(default_factory=lambda: ["notification_worker", "postgres_transactional_outbox", "payment_gateway", "erp_ledger_sync"])
     safety_mechanisms: list[str] = Field(default_factory=lambda: [
         "zero_trust_cryptographic_agent_identity",
         "model_armor_prompt_defense_guardrail",
@@ -48,6 +48,6 @@ def get_agbom_inventory(settings: Optional[Settings] = None) -> dict[str, Any]:
         environment=s.app_env.value,
         model=s.gemini_model,
         project_id=s.google_cloud_project,
-        state_store="Google Cloud Firestore" if s.google_cloud_project != "approval-loop-hackathon" else "In-Memory / Firestore (Configurable)"
+        state_store="PostgreSQL" if s.database_url else "In-Memory (development)"
     )
     return agbom.model_dump()

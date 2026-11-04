@@ -199,4 +199,6 @@ class AutonomyMetrics(BaseModel):
     blocked_actions_count: int = 0
     duplicate_actions_prevented: int = 0
     unsafe_transitions_prevented: int = 0
-    human_prompts_required: int = 0  # Hard zero
+    # Expense-reminder loop only: it never waits on a person by design, so this is always 0.
+    # It is NOT a count of agent proposals held for human approval (see /gateway/actions/pending).
+    human_prompts_required: int = 0

@@ -12,7 +12,7 @@ from approval_loop.memory.memory_bank import MemoryBankService
 from approval_loop.gateway.gateway import AgentGateway
 from approval_loop.runtime.async_runtime import AsyncAgentRuntime
 from approval_loop.storage.memory_repo import InMemoryRepository
-from approval_loop.storage.firestore_repo import FirestoreRepository
+from approval_loop.storage.postgres_repo import PostgresRepository
 from approval_loop.agent.drafter import GeminiAgentDrafter
 from approval_loop.agent.fleet import FinanceAgent, SupportAgent, SalesAgent
 from approval_loop.validator.validator import DeterministicValidator
@@ -28,8 +28,8 @@ from approval_loop.api.routes import (
 
 settings = Settings()
 
-if os.getenv("USE_FIRESTORE", "false").lower() == "true":
-    repo = FirestoreRepository(project_id=settings.google_cloud_project)
+if settings.database_url:
+    repo = PostgresRepository(settings.database_url, schema=settings.database_schema)
 else:
     repo = InMemoryRepository()
 
@@ -43,7 +43,10 @@ agent_registry_service = AgentRegistryService(repo=repo)
 # 2. Identity Provider & Model Safety Guardrail
 identity_provider = AgentIdentityProvider(
     registry_service=agent_registry_service,
-    secret_key=settings.agent_identity_secret
+    secret_key=settings.agent_identity_secret,
+    oidc_audience=settings.oidc_audience,
+    oidc_agent_bindings=settings.agent_oidc_bindings,
+    require_request_binding=settings.require_bound_agent_tokens,
 )
 guardrail = ModelSafetyGuardrail()
 
@@ -110,7 +113,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins if settings.app_env == AppEnvironment.PRODUCTION else ["*"],
-    allow_credentials=True if settings.app_env != AppEnvironment.PRODUCTION else False,
+    # Browsers forbid credentialed wildcard CORS; this app authenticates via headers, not cookies.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -128,7 +132,7 @@ def health_ready():
     """Readiness check: all dependencies, registry, and configuration are healthy."""
     try:
         # Check storage readiness
-        repo_type = "firestore" if isinstance(repo, FirestoreRepository) else "in-memory"
+        repo_type = "postgres" if isinstance(repo, PostgresRepository) else "in-memory"
         # Check registry readiness
         agents = agent_registry_service.list_agents()
         return {
@@ -151,7 +155,7 @@ def healthz():
     return {
         "status": "healthy",
         "app_env": settings.app_env.value,
-        "storage": "firestore" if isinstance(repo, FirestoreRepository) else "in-memory",
+        "storage": "postgres" if isinstance(repo, PostgresRepository) else "in-memory",
         "project": settings.google_cloud_project,
         "gemini_model": settings.gemini_model,
         "framework": "Google GenAI SDK (google-genai)",

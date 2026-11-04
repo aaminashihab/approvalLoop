@@ -1,5 +1,7 @@
 import uuid
 import logging
+import threading
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Any
 from approval_loop.domain.gateway_models import (
@@ -8,7 +10,7 @@ from approval_loop.domain.gateway_models import (
 from approval_loop.domain.models import (
     ActionRecord, ActionType, ActionStatus, ReportStatus, NotificationEnvelope
 )
-from approval_loop.domain.agent_registry import AgentRegistryService
+from approval_loop.domain.agent_registry import AgentRegistryService, AgentStatus
 from approval_loop.identity.auth_provider import AgentIdentityProvider
 from approval_loop.guardrails.safety_guardrail import ModelSafetyGuardrail
 from approval_loop.policy.policy_engine import PolicyEngine, PolicyDecisionEnum
@@ -47,6 +49,37 @@ class AgentGateway:
         self.worker = worker
         self.guardrail = guardrail or ModelSafetyGuardrail()
         self.tracer = tracer or OpenTelemetryTracer.get_tracer()
+        # Serialises "check daily total, then record the allow" so two concurrent proposals cannot both
+        # slip under the cap. Process-local: multi-instance deployments need a shared counter (see README).
+        self._cap_lock = threading.Lock()
+
+    def _daily_cap_exceeded(self, proposal: AgentActionProposal, profile_name: str, policy_version: str) -> Optional[str]:
+        """Returns a hold reason if auto-executing this proposal would exceed the agent's daily cap."""
+        if proposal.amount is None:
+            return None
+        cap = self.policy_engine.daily_auto_cap(profile_name, proposal.currency)
+        if cap is None:
+            return None
+        currency = proposal.currency.upper()
+        today = utc_now().date()
+        spent = Decimal("0")
+        for wf in self.memory_bank.list_workflows(agent_id=proposal.agent_id):
+            for prop, dec in zip(wf.action_history, wf.previous_decisions):
+                if dec.get("decision") != GatewayDecisionEnum.ALLOW.value:
+                    continue
+                if str(prop.get("currency", "")).upper() != currency or prop.get("amount") in (None, ""):
+                    continue
+                try:
+                    if datetime.fromisoformat(dec["timestamp"]).date() != today:
+                        continue
+                    spent += Decimal(str(prop["amount"]))
+                except (KeyError, ValueError, ArithmeticError):
+                    continue
+        if spent + proposal.amount <= cap:
+            return None
+        return (f"Policy {policy_version} [DAILY_AUTO_CAP]: {proposal.agent_id} has executed {currency} {spent} "
+                f"autonomously today; {currency} {proposal.amount} more would exceed the daily cap of "
+                f"{currency} {cap}. Human sign-off required.")
 
     def authorize_action(
         self,
@@ -115,7 +148,8 @@ class AgentGateway:
 
             # 3. Deterministic Policy Evaluation
             agent_reg = self.registry.get_agent(proposal.agent_id)
-            profile_name = agent_reg.policy_profile if agent_reg else "finance-v3"
+            # Fail closed: a missing registration maps to an unknown profile, which the policy engine DENIES.
+            profile_name = agent_reg.policy_profile if agent_reg else "__unregistered__"
 
             with self.tracer.start_span("policy.evaluate", {"policy_profile": profile_name, "amount": str(proposal.amount)}):
                 policy_dec, policy_reason, policy_version = self.policy_engine.evaluate_proposal(proposal, profile_name)
@@ -123,6 +157,13 @@ class AgentGateway:
             risk_level = agent_reg.risk_level.value if agent_reg else "medium"
 
             # 4. Map Decision Outcome
+            if policy_dec == PolicyDecisionEnum.ALLOW:
+                self._cap_lock.acquire()
+                over_cap = self._daily_cap_exceeded(proposal, profile_name, policy_version)
+                if over_cap:
+                    self._cap_lock.release()
+                    policy_dec, policy_reason = PolicyDecisionEnum.REQUIRE_HUMAN_APPROVAL, over_cap
+
             if policy_dec == PolicyDecisionEnum.ALLOW:
                 decision = GatewayDecision(
                     decision_id=decision_id,
@@ -141,9 +182,17 @@ class AgentGateway:
                     action_record_id=action_record_id,
                     details={"action": proposal.action_name, "amount": str(proposal.amount), "recipient": proposal.recipient}
                 )
-                self._record_in_memory(proposal, decision)
+                try:
+                    self._record_in_memory(proposal, decision)
+                finally:
+                    self._cap_lock.release()
                 # Automatic execution for low-risk allowed actions
-                self._execute_proposal_action(proposal, decision, operator="ApprovalLoop Auto-Executor")
+                exec_ok, exec_receipt, exec_err = self._execute_proposal_action(proposal, decision, operator="ApprovalLoop Auto-Executor")
+                decision.details["execution_ok"] = exec_ok
+                decision.details["receipt_id"] = exec_receipt
+                if not exec_ok:
+                    decision.details["execution_error"] = exec_err
+                    logger.error("Auto-execution failed for proposal '%s': %s", proposal.proposal_id, exec_err)
 
             elif policy_dec == PolicyDecisionEnum.REQUIRE_HUMAN_APPROVAL:
                 decision = GatewayDecision(
@@ -201,7 +250,7 @@ class AgentGateway:
                 agent_id=proposal.agent_id,
                 session_id=proposal.session_id or f"sess_{uuid.uuid4().hex[:8]}",
                 state=WorkflowState.RUNNING if decision.decision == GatewayDecisionEnum.ALLOW else (
-                    WorkflowState.PAUSED_FOR_APPROVAL if decision.decision == GatewayDecisionEnum.REQUIRE_HUMAN_APPROVAL else WorkflowState.FAILED
+                    WorkflowState.PAUSED_FOR_APPROVAL if decision.decision == GatewayDecisionEnum.REQUIRE_HUMAN_APPROVAL else WorkflowState.DENIED
                 ),
                 policy_version=decision.policy_version,
                 metadata={"action": proposal.action_name, "target": proposal.target_resource_id}
@@ -264,11 +313,23 @@ class AgentGateway:
         Human approval resolution: Atomically claims and resumes workflow, triggering idempotent execution.
         Prevents concurrent or duplicate approvals.
         """
+        # Revocation check BEFORE claiming: a disabled/removed agent's pending action must not
+        # execute. The action stays pending so an operator can reject it explicitly.
+        pending_wf = self.memory_bank.get_workflow_by_action_id(action_id)
+        if pending_wf is not None:
+            agent = self.registry.get_agent(pending_wf.agent_id)
+            if agent is None or agent.status != AgentStatus.ACTIVE:
+                raise ValueError(
+                    f"Approval refused: agent '{pending_wf.agent_id}' is no longer ACTIVE; action '{action_id}' left pending."
+                )
+
+        ttl = getattr(getattr(self.policy_engine, "settings", None), "approval_ttl_seconds", None)
         success, reason, wf = self.memory_bank.claim_and_transition_approval(
             action_id=action_id,
             approve=True,
             operator=operator,
-            notes=notes
+            notes=notes,
+            ttl_seconds=ttl,
         )
         if not success:
             raise ValueError(reason)
@@ -285,10 +346,15 @@ class AgentGateway:
         # Execute side effect
         exec_ok, receipt_id, err = self._execute_proposal_action(proposal, decision_dict, operator=operator)
 
+        # Re-read: execution already persisted COMPLETED/FAILED; saving the pre-execution copy
+        # would overwrite that state with a stale one on non-shared-reference repositories.
+        wf = self.memory_bank.get_workflow(wf.workflow_id) or wf
+
         # Record immutable approval details in metadata
         if "pending_action" not in wf.metadata:
             wf.metadata["pending_action"] = {}
-        wf.metadata["pending_action"]["status"] = "approved_and_executed"
+        wf.metadata["pending_action"]["status"] = "approved_and_executed" if exec_ok else "approved_execution_failed"
+        wf.metadata["pending_action"]["execution_error"] = err
         wf.metadata["pending_action"]["executed_at"] = utc_now().isoformat()
         wf.metadata["pending_action"]["receipt_id"] = receipt_id
         wf.metadata["pending_action"]["approved_by"] = operator
@@ -302,7 +368,8 @@ class AgentGateway:
             agent_id=proposal.agent_id,
             action_name=proposal.action_name,
             decision=GatewayDecisionEnum.ALLOW,
-            reason=f"Human Approval Granted by {operator}. Executed with receipt {receipt_id}.",
+            reason=(f"Human Approval Granted by {operator}. Executed with receipt {receipt_id}." if exec_ok
+                    else f"Human Approval Granted by {operator}, but execution FAILED: {err}"),
             policy_version=wf.policy_version or decision_dict.get("policy_version", "finance-v3"),
             risk_level="medium",
             identity_verified=True,
@@ -315,6 +382,8 @@ class AgentGateway:
                 "notes": notes,
                 "executed_at": utc_now().isoformat(),
                 "receipt_id": receipt_id,
+                "execution_ok": exec_ok,
+                "execution_error": err,
                 "proposal_id": proposal.proposal_id
             }
         )
@@ -402,4 +471,6 @@ class AgentGateway:
         }
         if ok:
             self.memory_bank.complete_workflow(proposal.workflow_id, result_payload)
+        else:
+            self.memory_bank.fail_workflow(proposal.workflow_id, result_payload)
         return ok, notif_id, err

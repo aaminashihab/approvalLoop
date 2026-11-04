@@ -55,16 +55,19 @@ class BaseFleetAgent:
                 logger.warning("Could not initialize google.genai client for %s: %s", agent_id, str(e))
                 self.client = None
 
-    def create_auth_context(self) -> AgentAuthContext:
-        """Generates an authenticated cryptographic token for the agent proposal."""
+    def create_auth_context(self, proposal: Optional[AgentActionProposal] = None) -> AgentAuthContext:
+        """Generates a token bound to this request and (when given) to this exact proposal."""
+        request_id = f"req_{uuid.uuid4().hex[:10]}"
         token = None
         if self.identity_provider:
-            token = self.identity_provider.generate_agent_token(self.agent_id, self.agent_version)
+            token = self.identity_provider.generate_agent_token(
+                self.agent_id, self.agent_version, request_id=request_id, proposal=proposal
+            )
         return AgentAuthContext(
             agent_id=self.agent_id,
             agent_version=self.agent_version,
             token=token,
-            request_id=f"req_{uuid.uuid4().hex[:10]}"
+            request_id=request_id
         )
 
     def _clean_json_response(self, raw_text: str) -> str:
@@ -151,7 +154,7 @@ class FinanceAgent(BaseFleetAgent):
             justification=justification,
             raw_llm_reasoning=raw_reasoning
         )
-        auth_context = self.create_auth_context()
+        auth_context = self.create_auth_context(proposal)
         return proposal, auth_context
 
 class SupportAgent(BaseFleetAgent):
@@ -200,7 +203,7 @@ class SupportAgent(BaseFleetAgent):
             justification=f"Support SLA triage for ticket {ticket_id}: {reason}.",
             raw_llm_reasoning="Analyzed uptime logs and calculated compensation according to Tier-2 SLA chart."
         )
-        auth_context = self.create_auth_context()
+        auth_context = self.create_auth_context(proposal)
         return proposal, auth_context
 
 class SalesAgent(BaseFleetAgent):
@@ -254,5 +257,5 @@ class SalesAgent(BaseFleetAgent):
             justification=f"Sales Deal Desk evaluation for deal {deal_id}: {reason} ({discount_percent}% discount).",
             raw_llm_reasoning="Evaluated ARR margin and approved multi-year term structure."
         )
-        auth_context = self.create_auth_context()
+        auth_context = self.create_auth_context(proposal)
         return proposal, auth_context

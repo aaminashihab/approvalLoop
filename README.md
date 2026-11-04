@@ -36,7 +36,7 @@ ApprovalLoop enforces an absolute separation of concerns:
 | **Parameter Integrity** | **4-Point Safety Validator** | Deterministic mathematical checks (exact Decimal precision, ID matching) |
 | **Authorization Policy** | **Policy Engine** | Versioned deterministic profiles (`finance-v3`, `support-v1`, `sales-v1`) |
 | **Execution Governance** | **Agent Gateway** | Emits `ALLOW`, `REQUIRE_HUMAN_APPROVAL`, or `DENY` decisions |
-| **Persistent Context** | **Memory Bank** | Firestore-backed cross-session state, action history, and pause/resume capability |
+| **Persistent Context** | **Memory Bank** | PostgreSQL-backed cross-session state, action history, and pause/resume capability |
 | **Asynchronous Execution** | **Async Runtime & Workers** | Leased task execution with crash recovery, retry backoff, and idempotency keys |
 | **Audit & Observability** | **OpenTelemetry** | Distributed traces and audit ledger reconstructing full causality with correlation IDs |
 
@@ -95,7 +95,7 @@ ApprovalLoop enforces an absolute separation of concerns:
                                                  │ Resumed
                                                  ▼
                                        ASYNC RUNTIME / WORKER
-                                    (Firestore Leased Claims)
+                                    (PostgreSQL Leased Claims)
                                                  │
                                                  ▼
                                      TOOL / ENTERPRISE ACTION
@@ -124,7 +124,7 @@ ApprovalLoop orchestrates a scalable network of specialized institutional agents
 
 ## 5. Agent Registry & Identity
 
-Persistent in **Google Cloud Firestore**, the Agent Registry defines the identity, capabilities, and boundaries of every registered agent:
+Persistent in **PostgreSQL**, the Agent Registry defines the identity, capabilities, and boundaries of every registered agent:
 - `agent_id`: Unique identifier (e.g. `finance-agent`)
 - `name`: Human-readable agent title
 - `description`: Role and functional boundary
@@ -169,8 +169,8 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 
 ## 8. Durable Async Runtime & Persistent Memory Bank
 
-- **Firestore Memory Bank:** Stores workflow state, session IDs, action history, previous decisions, and approval records across restarts.
-- **Durable Task Leasing:** `AsyncAgentRuntime` persists task records (`async_tasks` collection in Firestore), managing lease acquisition, lease expiry, exponential retry backoff, and crash recovery. Tasks do not disappear when Cloud Run restarts.
+- **PostgreSQL Memory Bank:** Stores workflow state, session IDs, action history, previous decisions, and approval records across restarts.
+- **Durable Task Leasing:** `AsyncAgentRuntime` persists task records (`async_tasks` table in PostgreSQL), managing lease acquisition, lease expiry, exponential retry backoff, and crash recovery. Tasks do not disappear when Cloud Run restarts.
 - **Single-Claim Approval Transitions:** Atomic transitions guarantee concurrent approval requests result in exactly one successful execution.
 
 ---
@@ -210,16 +210,16 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 - [x] Model Armor-inspired deterministic safety guardrail
 - [x] Deterministic Policy Engine (`finance-v3`, `support-v1`, `sales-v1`)
 - [x] Human-in-the-Loop Approval Queue & durable workflow pause/resume
-- [x] Durable Async Runtime with Firestore task leasing & crash recovery
-- [x] Persistent Memory Bank (Firestore & In-Memory with atomic transactions)
+- [~] Async runtime with task leasing & retry backoff (implemented and tested; not yet wired to an API route)
+- [x] Persistent Memory Bank (PostgreSQL & in-memory). Approval claims commit by compare-and-set (repository lock in memory, conditional `UPDATE` in PostgreSQL)
 - [x] OpenTelemetry correlated distributed tracing & audit ledger
 - [x] 3-Tier Demo Scenarios (Case A ALLOW, Case B HUMAN APPROVAL, Case C DENY)
 - [x] Google Cloud Run & Cloud Scheduler deployment automation
-- [x] 100% Clean test suite (90 passing backend unit/integration tests)
+- [x] Backend test suite: 165 tests, all passing (`cd backend && PYTHONPATH=. python -m pytest tests`).
 
 ### OPTIONAL / FUTURE ROADMAP
 - [ ] Direct Google Cloud Pub/Sub integration for sub-second event streaming
-- [ ] Multi-region active-active Firestore replication
+- [ ] PostgreSQL high availability / read replicas (Cloud SQL HA)
 - [ ] Enterprise SSO (Okta / Azure AD SAML) integration
 
 ---
@@ -229,6 +229,7 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 ### Prerequisites
 - Python 3.10+
 - Node.js 20+
+- PostgreSQL 14+ for persistent storage (optional locally: without `DATABASE_URL` the API uses in-memory storage, which is refused in production)
 
 ### Step 1: Clone & Setup Virtual Environment
 ```bash
@@ -240,7 +241,7 @@ python -m venv .venv
 # On Linux/macOS:
 source .venv/bin/activate
 
-pip install -r backend/requirements.txt
+pip install -r backend/requirements-dev.txt   # runtime + test deps
 ```
 
 ### Step 2: Environment Variables
@@ -253,13 +254,19 @@ GEMINI_MODEL=gemini-3.5-flash
 SCHEDULER_API_KEY=dev-scheduler-secret-key
 AGENT_IDENTITY_SECRET=fleet-identity-master-secret-key-2026
 ALLOW_INSECURE_DEMO_AUTH=false
+# Optional locally, required in production:
+DATABASE_URL=postgresql://approvalloop:approvalloop@localhost:5432/approvalloop
 ```
+
+The schema (`backend/approval_loop/storage/postgres_schema.sql`) is created automatically on start-up.
+To run the API with PostgreSQL in Docker instead: `docker compose up --build` (http://localhost:8080).
 
 ### Step 3: Run Tests
 ```bash
-# Run full pytest suite (90 tests)
-$env:PYTHONPATH="backend"
-python -m pytest backend/tests -v
+# Run full pytest suite (172 tests). PostgreSQL tests use TEST_DATABASE_URL if set,
+# otherwise an embedded server from the `pgserver` dev dependency.
+cd backend
+PYTHONPATH=. python -m pytest tests -q
 ```
 
 ### Step 4: Run Backend & Frontend Locally
@@ -277,7 +284,7 @@ npm run dev
 
 ## 13. Google Cloud Deployment
 
-Deploy ApprovalLoop to **Google Cloud Run** with **Cloud Scheduler** and **Firestore**:
+Deploy ApprovalLoop to **Google Cloud Run** with **Cloud Scheduler** and **Cloud SQL for PostgreSQL**:
 
 ```bash
 # Set Google Cloud credentials & project
@@ -285,11 +292,27 @@ export GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
 export GEMINI_API_KEY="your-gemini-api-key"
 export REGION="us-central1"
 export APP_ENV="demo"
+export CLOUD_SQL_INSTANCE="your-gcp-project-id:us-central1:approvalloop"      # Cloud SQL (PostgreSQL) instance
+export DATABASE_URL="postgresql://USER:PASSWORD@/approvalloop?host=/cloudsql/$CLOUD_SQL_INSTANCE"
+# With USE_SECRET_MANAGER=true, store the URL in the secret "database-url" instead of exporting it.
 
 # Execute automated deployment script
 chmod +x deploy.sh
 ./deploy.sh
 ```
+
+---
+
+## 13a. Known Limitations (audit, Nov 2026)
+
+- **Approval claims are a conditional `UPDATE` in PostgreSQL**, tested with two connection pools racing against a real PostgreSQL 16 server. Not yet load-tested against a managed Cloud SQL instance.
+- **Executor is a stub.** `MockNotificationProvider`/`ProductionNotificationProvider` only simulate dispatch; no real refund/credit/discount integration exists. A failed execution after approval marks the workflow `FAILED`; there is no automatic retry or dead-letter path for gateway actions.
+- **Agent token binding is enforced only in production** (`REQUIRE_BOUND_AGENT_TOKENS`, default on when `APP_ENV=production`): tokens carry the request_id and a SHA-256 digest of the proposal. The replay cache and the daily auto-approve cap are per-process; multi-instance deployments need a shared store for both.
+- **One shared static key** (`SCHEDULER_API_KEY`) acts as scheduler, admin and operator credential; operator identity from it is not individually attributable. OIDC auth requires `OIDC_AUDIENCE` (and `AGENT_OIDC_BINDINGS` for agents) and is otherwise disabled.
+- **Frontend credentials:** the UI no longer embeds a key. Operators paste a key into the in-app prompt (kept in `sessionStorage`). This is a stopgap; production should front the UI with an identity-aware proxy / OIDC login. The policy limits drawn in the approval screen are a display-only copy of the backend limits (`frontend/src/components/PolicyBand.tsx`) and can drift from the server.
+- **No multi-tenancy**, rate limiting, request-size limits, or audit-data redaction/retention policy exist.
+- The safety guardrail is regex-based (it also matches de-obfuscated text: homoglyphs, invisible characters, digit swaps, letter spacing, Base64) and inspects only `justification`. It does not catch paraphrased instructions; the policy tiers and the per-agent daily auto-approve cap are the actual bound on what an injected proposal can do.
+- Default secrets in config/README are for local demo only; `APP_ENV` defaults to `demo`.
 
 ---
 

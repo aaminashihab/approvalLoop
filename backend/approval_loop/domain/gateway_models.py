@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from typing import Optional, Any
 from pydantic import BaseModel, Field, field_validator
@@ -37,11 +37,20 @@ class AgentActionProposal(BaseModel):
     def parse_decimal_amount(cls, v: Any) -> Optional[Decimal]:
         if v is None:
             return None
-        if isinstance(v, (int, str, float)):
-            return Decimal(str(v))
         if isinstance(v, Decimal):
-            return v
-        raise ValueError(f"Invalid monetary value: {v}")
+            d = v
+        elif isinstance(v, (int, str, float)) and not isinstance(v, bool):
+            try:
+                d = Decimal(str(v))
+            except InvalidOperation:
+                # Raised as ValueError so the API answers 422, not 500.
+                raise ValueError(f"Invalid monetary value: {v!r}") from None
+        else:
+            raise ValueError(f"Invalid monetary value: {v!r}")
+        # Explicit, so NaN/Infinity are refused regardless of the installed pydantic version.
+        if not d.is_finite():
+            raise ValueError("Amount must be a finite number.")
+        return d
 
     def to_dict(self) -> dict[str, Any]:
         return {

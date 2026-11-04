@@ -123,7 +123,7 @@ def test_gateway_deny_high_risk_ceiling(setup_gateway):
     assert "exceeds corporate authorization ceiling" in decision.reason
     
     wf = memory_bank.get_workflow(proposal.workflow_id)
-    assert wf.state == WorkflowState.FAILED
+    assert wf.state == WorkflowState.DENIED  # blocked by policy: nothing executed, so not "failed"
 
 def test_gateway_human_rejection(setup_gateway):
     gateway, id_provider, worker, memory_bank = setup_gateway

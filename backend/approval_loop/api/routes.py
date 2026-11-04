@@ -15,7 +15,10 @@ from approval_loop.gateway.gateway import AgentGateway
 from approval_loop.memory.memory_bank import MemoryBankService
 from approval_loop.runtime.async_runtime import AsyncAgentRuntime
 from approval_loop.agent.fleet import FinanceAgent, SupportAgent, SalesAgent
-from approval_loop.api.auth import verify_scheduler_auth, verify_admin_auth, verify_operator_auth
+from approval_loop.api.auth import (
+    verify_scheduler_auth, verify_admin_auth, verify_operator_auth,
+    require_operator_in_production, require_non_production
+)
 
 router = APIRouter(prefix="/api")
 
@@ -124,12 +127,12 @@ def get_agbom():
     return get_agbom_inventory()
 
 @router.get("/traces")
-def get_traces(limit: int = Query(20, ge=1, le=100), engine: ApprovalEngine = Depends(get_engine)):
+def get_traces(limit: int = Query(20, ge=1, le=100), engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_operator_in_production)):
     """Returns recent OpenTelemetry-compatible execution spans and trace records."""
     return engine.tracer.get_recent_traces(limit=limit)
 
 @router.get("/metrics")
-def get_metrics(engine: ApprovalEngine = Depends(get_engine)):
+def get_metrics(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_operator_in_production)):
     """Returns live, computed proof-of-autonomy metrics."""
     return engine.get_autonomy_metrics().model_dump()
 
@@ -138,12 +141,12 @@ def get_metrics(engine: ApprovalEngine = Depends(get_engine)):
 # ==========================================
 
 @router.get("/registry/agents")
-def list_agents(registry: AgentRegistryService = Depends(get_registry_service)):
+def list_agents(registry: AgentRegistryService = Depends(get_registry_service), _guard: object = Depends(require_operator_in_production)):
     """Lists all registered institutional agents in the enterprise fleet."""
     return [a.to_dict() for a in registry.list_agents()]
 
 @router.get("/registry/agents/{agent_id}")
-def get_agent(agent_id: str, registry: AgentRegistryService = Depends(get_registry_service)):
+def get_agent(agent_id: str, registry: AgentRegistryService = Depends(get_registry_service), _guard: object = Depends(require_operator_in_production)):
     agent = registry.get_agent(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found in registry.")
@@ -206,10 +209,24 @@ def approve_gateway_action(
     """Human approval sign-off: resumes paused workflow and triggers execution."""
     try:
         decision = gateway.approve_action(action_id, operator=operator_principal, notes=req.notes)
-        return {"message": "Action approved and dispatched", "decision": decision.to_dict()}
+        executed = bool(decision.details.get("execution_ok"))
+        # The approval is recorded either way; execution status is reported explicitly so a client
+        # can never mistake "approved" for "paid".
+        return {
+            "message": "Action approved and executed" if executed else "Action approved, but execution failed",
+            "execution": {
+                "executed": executed,
+                "receipt_id": decision.details.get("receipt_id"),
+                "error": decision.details.get("execution_error"),
+            },
+            "decision": decision.to_dict(),
+        }
     except ValueError as e:
         err_msg = str(e)
-        if "already" in err_msg.lower():
+        lowered = err_msg.lower()
+        if "expired" in lowered:
+            raise HTTPException(status_code=410, detail=err_msg)
+        if "already" in lowered or "no longer active" in lowered or "not pending approval" in lowered:
             raise HTTPException(status_code=409, detail=err_msg)
         raise HTTPException(status_code=404, detail=err_msg)
 
@@ -226,7 +243,10 @@ def reject_gateway_action(
         return {"message": "Action rejected", "decision": decision.to_dict()}
     except ValueError as e:
         err_msg = str(e)
-        if "already" in err_msg.lower():
+        lowered = err_msg.lower()
+        if "expired" in lowered:
+            raise HTTPException(status_code=410, detail=err_msg)
+        if "already" in lowered or "no longer active" in lowered or "not pending approval" in lowered:
             raise HTTPException(status_code=409, detail=err_msg)
         raise HTTPException(status_code=404, detail=err_msg)
 
@@ -237,16 +257,16 @@ def reject_gateway_action(
 @router.get("/memory/workflows")
 def list_workflows(
     agent_id: Optional[str] = Query(None),
-    memory_bank: MemoryBankService = Depends(get_memory_bank)
-):
+    memory_bank: MemoryBankService = Depends(get_memory_bank),
+    _guard: object = Depends(require_operator_in_production)):
     workflows = memory_bank.list_workflows(agent_id=agent_id)
     return [w.to_dict() for w in workflows]
 
 @router.get("/memory/workflows/{workflow_id}")
 def get_workflow_memory(
     workflow_id: str,
-    memory_bank: MemoryBankService = Depends(get_memory_bank)
-):
+    memory_bank: MemoryBankService = Depends(get_memory_bank),
+    _guard: object = Depends(require_operator_in_production)):
     wf = memory_bank.get_workflow(workflow_id)
     if not wf:
         raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found in Memory Bank.")
@@ -259,8 +279,8 @@ def get_workflow_memory(
 @router.post("/demo/scenario-a")
 def trigger_scenario_a(
     gateway: AgentGateway = Depends(get_gateway),
-    settings: Settings = Depends(get_settings)
-):
+    settings: Settings = Depends(get_settings),
+    _guard: object = Depends(require_non_production)):
     """
     Case A: Finance Agent requests Refund of ₹2,000 ($20).
     Expected: ALLOW -> Automatic Execution.
@@ -290,8 +310,8 @@ def trigger_scenario_a(
 @router.post("/demo/scenario-b")
 def trigger_scenario_b(
     gateway: AgentGateway = Depends(get_gateway),
-    settings: Settings = Depends(get_settings)
-):
+    settings: Settings = Depends(get_settings),
+    _guard: object = Depends(require_non_production)):
     """
     Case B: Finance Agent requests Refund of ₹20,000 ($200).
     Expected: REQUIRE_HUMAN_APPROVAL -> Workflow pauses in Memory Bank, awaits Dashboard approval.
@@ -322,8 +342,8 @@ def trigger_scenario_b(
 @router.post("/demo/scenario-c")
 def trigger_scenario_c(
     gateway: AgentGateway = Depends(get_gateway),
-    settings: Settings = Depends(get_settings)
-):
+    settings: Settings = Depends(get_settings),
+    _guard: object = Depends(require_non_production)):
     """
     Case C: Finance Agent requests Refund of ₹100,000 ($1,000).
     Expected: DENY -> Even if Gemini proposes it, ApprovalLoop's deterministic policy rejects it.
@@ -355,12 +375,12 @@ def trigger_scenario_c(
 # ==========================================
 
 @router.get("/reports")
-def list_reports(engine: ApprovalEngine = Depends(get_engine)):
+def list_reports(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_operator_in_production)):
     reports = engine.repo.list_all_reports()
     return [r.to_dict() for r in reports]
 
 @router.post("/reports")
-def create_report(req: CreateReportRequest, engine: ApprovalEngine = Depends(get_engine)):
+def create_report(req: CreateReportRequest, engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_operator_in_production)):
     report_id = req.report_id or f"EXP-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
         report_id=report_id,
@@ -377,14 +397,14 @@ def create_report(req: CreateReportRequest, engine: ApprovalEngine = Depends(get
     return {"message": "Report created", "report": report.to_dict()}
 
 @router.post("/reports/{report_id}/resolve")
-def resolve_report(report_id: str, engine: ApprovalEngine = Depends(get_engine)):
+def resolve_report(report_id: str, engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_operator_in_production)):
     report = engine.repo.resolve_report(report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     return {"message": "Report resolved", "report": report.to_dict()}
 
 @router.get("/actions")
-def list_actions(engine: ApprovalEngine = Depends(get_engine)):
+def list_actions(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_operator_in_production)):
     actions = engine.repo.list_all_actions()
     return [a.to_dict() for a in actions]
 
@@ -403,7 +423,7 @@ def trigger_tick(
     }
 
 @router.post("/seed")
-def seed_demo_data(engine: ApprovalEngine = Depends(get_engine), settings: Settings = Depends(get_settings)):
+def seed_demo_data(engine: ApprovalEngine = Depends(get_engine), settings: Settings = Depends(get_settings), _guard: object = Depends(require_non_production)):
     now = utc_now()
     demo_reports = [
         ExpenseReport(
@@ -477,7 +497,7 @@ def seed_demo_data(engine: ApprovalEngine = Depends(get_engine), settings: Setti
     return {"message": "Seeded 5 demo expense reports", "count": len(demo_reports)}
 
 @router.post("/demo/advance-time")
-def advance_time(req: AdvanceTimeRequest, engine: ApprovalEngine = Depends(get_engine)):
+def advance_time(req: AdvanceTimeRequest, engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_non_production)):
     reports = engine.repo.list_all_reports()
     updated = []
     delta = timedelta(seconds=req.seconds)
@@ -490,7 +510,7 @@ def advance_time(req: AdvanceTimeRequest, engine: ApprovalEngine = Depends(get_e
     return {"message": f"Advanced time by {req.seconds}s for {len(updated)} reports", "updated": updated}
 
 @router.post("/simulate-adversarial")
-def simulate_adversarial(engine: ApprovalEngine = Depends(get_engine)):
+def simulate_adversarial(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_non_production)):
     now = utc_now()
     report_id = f"EXP-ADV-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
@@ -530,7 +550,7 @@ def simulate_adversarial(engine: ApprovalEngine = Depends(get_engine)):
     }
 
 @router.post("/simulate-race")
-def simulate_race_condition(engine: ApprovalEngine = Depends(get_engine)):
+def simulate_race_condition(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_non_production)):
     now = utc_now()
     report_id = f"EXP-RACE-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
@@ -566,7 +586,7 @@ def simulate_race_condition(engine: ApprovalEngine = Depends(get_engine)):
     }
 
 @router.post("/simulate-notification-failure")
-def simulate_notification_failure(engine: ApprovalEngine = Depends(get_engine)):
+def simulate_notification_failure(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_non_production)):
     now = utc_now()
     report_id = f"EXP-FAIL-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
@@ -599,6 +619,6 @@ def simulate_notification_failure(engine: ApprovalEngine = Depends(get_engine)):
     }
 
 @router.post("/demo/reset")
-def reset_demo(engine: ApprovalEngine = Depends(get_engine), settings: Settings = Depends(get_settings)):
+def reset_demo(engine: ApprovalEngine = Depends(get_engine), settings: Settings = Depends(get_settings), _guard: object = Depends(require_non_production)):
     seed_res = seed_demo_data(engine, settings)
     return {"message": "Demo state reset successfully", "seeded": seed_res}

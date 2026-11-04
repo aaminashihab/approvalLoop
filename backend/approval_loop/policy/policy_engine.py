@@ -1,5 +1,5 @@
 from enum import Enum
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Optional, Any
 from pydantic import BaseModel
 from approval_loop.domain.models import (
@@ -46,6 +46,8 @@ class PolicyEngine:
             "human_approval_max": Decimal("25000.00"), # 5000-25000 -> REQUIRE_HUMAN_APPROVAL
             "auto_approve_usd": Decimal("50.00"),
             "human_approval_usd": Decimal("250.00"),
+            # Total an agent may execute autonomously per UTC day; above it, proposals are held for a person.
+            "daily_auto_cap": {"INR": Decimal("50000.00"), "USD": Decimal("500.00")},
         },
         "support-v1": {
             "version": "support-v1.1.0",
@@ -53,6 +55,7 @@ class PolicyEngine:
             "human_approval_max": Decimal("10000.00"), # 2000-10000 -> REQUIRE_HUMAN_APPROVAL
             "auto_approve_usd": Decimal("20.00"),
             "human_approval_usd": Decimal("100.00"),
+            "daily_auto_cap": {"INR": Decimal("20000.00"), "USD": Decimal("200.00")},
         },
         "sales-v1": {
             "version": "sales-v1.0.0",
@@ -61,8 +64,16 @@ class PolicyEngine:
         }
     }
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Optional[Settings] = None, enforce_daily_caps: bool = True):
         self.settings = settings or Settings()
+        self.enforce_daily_caps = enforce_daily_caps
+
+    def daily_auto_cap(self, profile_name: str, currency: Optional[str]) -> Optional[Decimal]:
+        """Per-agent, per-currency limit on autonomously executed value per UTC day (None = no cap)."""
+        if not self.enforce_daily_caps:
+            return None
+        caps = self.PROFILES.get(profile_name, {}).get("daily_auto_cap") or {}
+        return caps.get((currency or "").upper())
 
     def evaluate(
         self,
@@ -147,7 +158,19 @@ class PolicyEngine:
                     f"Policy Violation [UNSUPPORTED_CURRENCY]: Currency '{currency}' is not supported by policy profile '{profile_name}'. Accepted: {self.SUPPORTED_CURRENCIES}",
                     policy_version
                 )
-            if proposal.amount is not None and proposal.amount < Decimal("0.00"):
+            if proposal.amount is not None and not proposal.amount.is_finite():
+                return (
+                    PolicyDecisionEnum.DENY,
+                    f"Policy Violation [INVALID_AMOUNT]: Amount must be a finite number.",
+                    policy_version
+                )
+            if proposal.amount is None:
+                return (
+                    PolicyDecisionEnum.REQUIRE_HUMAN_APPROVAL,
+                    f"Policy {policy_version} [AMOUNT_MISSING]: No amount supplied; autonomous execution is not permitted without a verifiable amount.",
+                    policy_version
+                )
+            if proposal.amount < Decimal("0.00"):
                 return (
                     PolicyDecisionEnum.DENY,
                     f"Policy Violation [INVALID_AMOUNT]: Amount cannot be negative ({proposal.amount}).",
@@ -217,7 +240,27 @@ class PolicyEngine:
                 )
 
         elif profile_name.startswith("sales"):
-            discount_pct = Decimal(str(proposal.parameters.get("discount_percent", 0)))
+            raw_discount = proposal.parameters.get("discount_percent")
+            if raw_discount is None:
+                return (
+                    PolicyDecisionEnum.REQUIRE_HUMAN_APPROVAL,
+                    f"Policy {policy_version} [DISCOUNT_MISSING]: No discount_percent supplied; autonomous execution is not permitted.",
+                    policy_version
+                )
+            try:
+                discount_pct = Decimal(str(raw_discount))
+            except (InvalidOperation, ValueError):
+                return (
+                    PolicyDecisionEnum.DENY,
+                    f"Policy Violation [INVALID_AMOUNT]: discount_percent is not a number.",
+                    policy_version
+                )
+            if not discount_pct.is_finite():
+                return (
+                    PolicyDecisionEnum.DENY,
+                    f"Policy Violation [INVALID_AMOUNT]: discount_percent must be finite.",
+                    policy_version
+                )
             if discount_pct < Decimal("0.0"):
                 return (
                     PolicyDecisionEnum.DENY,

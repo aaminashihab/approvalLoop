@@ -55,17 +55,54 @@ class Settings(BaseModel):
     gemini_model: str = Field(
         default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     )
+    # Expected `aud` claim for Google OIDC bearer tokens (operators/scheduler/agents).
+    # When unset, OIDC authentication is DISABLED (fail closed): a Google-signed token
+    # with an arbitrary audience must never authenticate as an operator or agent.
+    oidc_audience: str | None = Field(
+        default_factory=lambda: os.getenv("OIDC_AUDIENCE") or None
+    )
+    # Optional binding of agent_id -> service-account email, e.g.
+    # "finance-agent=fin@proj.iam.gserviceaccount.com,support-agent=sup@proj.iam.gserviceaccount.com"
+    agent_oidc_bindings_raw: str = Field(
+        default_factory=lambda: os.getenv("AGENT_OIDC_BINDINGS", "")
+    )
+    # Maximum age of a pending human approval before it can no longer be granted.
+    approval_ttl_seconds: int = Field(
+        default_factory=lambda: int(os.getenv("APPROVAL_TTL_SECONDS", str(24 * 3600)))
+    )
     allow_insecure_demo_auth: bool = Field(
         default_factory=lambda: os.getenv("ALLOW_INSECURE_DEMO_AUTH", "false").lower() in ("true", "1", "yes")
     )
-    firestore_collection_reports: str = "expense_reports"
-    firestore_collection_actions: str = "approval_actions"
-    firestore_collection_agents: str = "agent_registry"
-    firestore_collection_memory: str = "workflow_memories"
+    # PostgreSQL connection string, e.g. postgresql://user:pass@host:5432/approvalloop.
+    # Unset means in-memory storage (development and tests only; refused in production).
+    database_url: str | None = Field(
+        default_factory=lambda: os.getenv("DATABASE_URL") or None
+    )
+    database_schema: str = Field(
+        default_factory=lambda: os.getenv("DATABASE_SCHEMA", "public")
+    )
 
     @property
     def thresholds(self) -> ThresholdConfig:
         return ENV_THRESHOLDS[self.app_env]
+
+    @property
+    def agent_oidc_bindings(self) -> dict[str, str]:
+        bindings: dict[str, str] = {}
+        for pair in self.agent_oidc_bindings_raw.split(","):
+            if "=" in pair:
+                agent_id, email = pair.split("=", 1)
+                if agent_id.strip() and email.strip():
+                    bindings[agent_id.strip()] = email.strip().lower()
+        return bindings
+
+    @property
+    def require_bound_agent_tokens(self) -> bool:
+        """Bound agent tokens are mandatory in production; REQUIRE_BOUND_AGENT_TOKENS overrides."""
+        raw = os.getenv("REQUIRE_BOUND_AGENT_TOKENS")
+        if raw is None:
+            return self.app_env == AppEnvironment.PRODUCTION
+        return raw.lower() in ("true", "1", "yes")
 
     @property
     def allowed_origins(self) -> list[str]:
@@ -88,3 +125,5 @@ class Settings(BaseModel):
                 raise ValueError("PRODUCTION error: GOOGLE_CLOUD_PROJECT must be explicitly configured in production.")
             if "*" in self.allowed_origins_raw:
                 raise ValueError("PRODUCTION error: Wildcard '*' CORS origin is prohibited in production.")
+            if not self.database_url:
+                raise ValueError("PRODUCTION error: DATABASE_URL must point to PostgreSQL; in-memory storage loses pending approvals on restart.")

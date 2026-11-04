@@ -2,10 +2,10 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.28.0
 pydantic>=2.6.0
 google-genai>=2.0.0,<3.0.0
-google-cloud-firestore>=2.15.0
+# Verifies Google OIDC tokens for operators, the scheduler and agents (api/auth.py, identity/).
+google-auth[requests]>=2.20.0
+# PostgreSQL driver and connection pool (storage/postgres_repo.py).
+psycopg[binary,pool]>=3.1,<4
 opentelemetry-api>=1.20.0
 opentelemetry-sdk>=1.20.0
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
-httpx>=0.27.0
 python-dotenv>=1.0.0

@@ -18,7 +18,8 @@ class WorkflowState(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     COMPLETED = "completed"
-    FAILED = "failed"
+    FAILED = "failed"      # execution was attempted and failed
+    DENIED = "denied"      # blocked by identity, safety or policy; nothing was executed
 
 class ApprovalRecord(BaseModel):
     required: bool = False
@@ -97,7 +98,9 @@ class MemoryBankService:
             return self._in_memory_records.get(workflow_id)
 
     def get_workflow_by_action_id(self, action_id: str) -> Optional[WorkflowMemoryRecord]:
-        """Finds a workflow memory record by its action ID across durable storage."""
+        """Finds a workflow memory record by its action ID (indexed lookup when a repository is set)."""
+        if self.repo is not None:
+            return self.repo.find_workflow_memory_by_action_id(action_id)
         records = self.list_workflows()
         for rec in records:
             if rec.current_action_id == action_id:
@@ -166,45 +169,81 @@ class MemoryBankService:
         rec.previous_decisions.append(decision_dict)
         return self.save_workflow(rec)
 
+    def _commit_if_still_paused(self, rec: WorkflowMemoryRecord) -> bool:
+        """Writes `rec` only if the stored copy is still paused. Atomic in the repository (lock or transaction)."""
+        rec.updated_at = utc_now()
+        if self.repo is not None:
+            return self.repo.compare_and_set_workflow_memory(rec, WorkflowState.PAUSED_FOR_APPROVAL.value)
+        current = self._in_memory_records.get(rec.workflow_id)
+        if current is None or current.state != WorkflowState.PAUSED_FOR_APPROVAL:
+            return False
+        self._in_memory_records[rec.workflow_id] = rec
+        return True
+
+    @staticmethod
+    def _already_decided(action_id: str, rec: Optional[WorkflowMemoryRecord]) -> str:
+        if rec is None:
+            return f"Pending action '{action_id}' not found in durable approval queue."
+        if rec.state == WorkflowState.APPROVED:
+            return f"Action '{action_id}' has already been approved."
+        if rec.state == WorkflowState.REJECTED:
+            return f"Action '{action_id}' has already been rejected."
+        if rec.state == WorkflowState.COMPLETED:
+            return f"Action '{action_id}' has already been completed."
+        return f"Action '{action_id}' is in state '{rec.state.value}' and not pending approval."
+
     def claim_and_transition_approval(
         self,
         action_id: str,
         approve: bool,
         operator: str,
-        notes: str = ""
+        notes: str = "",
+        ttl_seconds: Optional[int] = None,
     ) -> tuple[bool, str, Optional[WorkflowMemoryRecord]]:
         """
-        Atomically claims a pending approval action and transitions its state.
-        Guarantees that concurrent approval requests result in exactly ONE successful transition.
+        Claims a pending approval action and transitions its state. Exactly one concurrent caller wins.
+
+        The decision is prepared on a private copy and committed with a compare-and-set that only
+        succeeds if the stored workflow is still paused (repository lock in memory, a conditional UPDATE in
+        PostgreSQL), so the guarantee holds across processes, not only within one.
+
+        If `ttl_seconds` is given, an approval attempted after the request has aged beyond the TTL
+        is refused and the workflow is moved to REJECTED (expired approvals can never execute).
         """
         with self._lock:
-            rec = self.get_workflow_by_action_id(action_id)
-            if not rec:
-                return False, f"Pending action '{action_id}' not found in durable approval queue.", None
+            stored = self.get_workflow_by_action_id(action_id)
+            if not stored or stored.state != WorkflowState.PAUSED_FOR_APPROVAL:
+                return False, self._already_decided(action_id, stored), stored
 
-            if rec.state == WorkflowState.APPROVED:
-                return False, f"Action '{action_id}' has already been approved.", rec
-            elif rec.state == WorkflowState.REJECTED:
-                return False, f"Action '{action_id}' has already been rejected.", rec
-            elif rec.state == WorkflowState.COMPLETED:
-                return False, f"Action '{action_id}' has already been completed.", rec
-            elif rec.state != WorkflowState.PAUSED_FOR_APPROVAL:
-                return False, f"Action '{action_id}' is in state '{rec.state.value}' and not pending approval.", rec
-
+            rec = stored.model_copy(deep=True)
             now = utc_now()
+
+            requested_at = rec.approval_record.requested_at if rec.approval_record else None
+            if approve and ttl_seconds is not None and requested_at is not None:
+                if (now - requested_at).total_seconds() > ttl_seconds:
+                    rec.state = WorkflowState.REJECTED
+                    rec.completed_at = now
+                    rec.resumed_at = now
+                    rec.approval_record.status = "expired"
+                    rec.approval_record.decided_at = now
+                    rec.approval_record.decided_by = "system:approval-expiry"
+                    rec.approval_record.operator_notes = f"Approval window of {ttl_seconds}s elapsed before decision by {operator}."
+                    self._commit_if_still_paused(rec)
+                    return False, f"Action '{action_id}' approval has expired.", rec
+
             rec.resumed_at = now
             rec.approval_record.status = "approved" if approve else "rejected"
             rec.approval_record.decided_at = now
             rec.approval_record.decided_by = operator
             rec.approval_record.operator_notes = notes
-
-            if approve:
-                rec.state = WorkflowState.APPROVED
-            else:
-                rec.state = WorkflowState.REJECTED
+            rec.state = WorkflowState.APPROVED if approve else WorkflowState.REJECTED
+            if not approve:
                 rec.completed_at = now
 
-            self.save_workflow(rec)
+            if not self._commit_if_still_paused(rec):
+                # Another process decided first; report what actually happened.
+                latest = self.get_workflow_by_action_id(action_id)
+                return False, self._already_decided(action_id, latest), latest
             return True, "Transition committed", rec
 
     def resume_workflow(
@@ -232,6 +271,16 @@ class MemoryBankService:
             rec.state = WorkflowState.REJECTED
             rec.completed_at = now
 
+        return self.save_workflow(rec)
+
+    def fail_workflow(self, workflow_id: str, error_result: dict[str, Any]) -> WorkflowMemoryRecord:
+        """Marks a workflow FAILED after an execution failure and records the failure result."""
+        rec = self.get_workflow(workflow_id)
+        if not rec:
+            raise ValueError(f"Workflow '{workflow_id}' not found.")
+        rec.state = WorkflowState.FAILED
+        rec.completed_at = utc_now()
+        rec.tool_results.append(error_result)
         return self.save_workflow(rec)
 
     def complete_workflow(self, workflow_id: str, final_tool_result: dict[str, Any]) -> WorkflowMemoryRecord:

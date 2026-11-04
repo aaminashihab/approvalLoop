@@ -2,10 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-}
-
-code, pre, .font-mono {
-  font-family: 'JetBrains Mono', monospace;
+@layer base {
+  html {
+    background-color: theme('colors.paper');
+    color: theme('colors.ink.DEFAULT');
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    font-family: theme('fontFamily.sans');
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+  }
+  :focus-visible {
+    outline: 2px solid theme('colors.focus');
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
