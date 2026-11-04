@@ -1,326 +1,254 @@
-# ApprovalLoop — Fortified Enterprise Fleet Gateway
+# ApprovalLoop
 
-**ApprovalLoop is a secure control plane for autonomous enterprise agents: agents can reason and act asynchronously, while identity, safety, policy, approval, execution, memory, and observability remain centrally governed.**
+**A governance gateway between LLM agents and actions that move money.** Agents may only *propose* an action, such as a refund, an account credit or a discount. Deterministic code checks the agent's identity, screens the text, and applies a versioned policy that either runs the action, holds it for a person, or blocks it. A small web console lets an approver decide held actions.
 
-> [!IMPORTANT]
-> **Core Architectural Invariant**:
-> **AI proposes. Deterministic policy decides. Infrastructure executes.**ApprovalLoop bridges autonomous intelligence (**Google Gemini 3.7+**, **Google Agent Framework**) with deterministic corporate governance, zero-trust cryptographic identity, persistent memory banks, leased async execution, and mathematical safety gates.
+> AI proposes. Deterministic policy decides. Infrastructure executes.
 
----
-
-## 1. The Problem
-
-Autonomous AI agents are transitioning from conversational chatbots into institutional operators capable of taking real-world actions: issuing financial refunds, approving expenses, granting sales discounts, and updating ERP ledgers.
-
-However, deploying autonomous agents directly to production tools creates existential enterprise risks:
-1. **Direct Tool Authority:** When LLMs are equipped with direct tool-calling privileges, a single prompt injection, model hallucination, or ambiguous context can execute irreversible, unauthorized financial or state changes.
-2. **Silent Workflow Stalls:** Stalled human approvals in enterprise systems silently halt operations because nobody prompts a conversational assistant when an approver is out of office.
-3. **Session Amnesia:** Multi-step asynchronous workflows that require human sign-off lose context across disconnections or container restarts.
-4. **Duplicate Execution:** Network timeouts and overlapping scheduler invocations cause duplicate side-effect execution.
+**Status:** a working prototype and portfolio project, not a production system. The governance core is real and well tested (210 automated tests, including tests against a real PostgreSQL server). Some advertised integrations are only adapters or demos; see [What is real and what is not](#what-is-real-and-what-is-not).
 
 ---
 
-## 2. Why Autonomous Agents Need Execution Governance
+## Contents
 
-Non-deterministic models are brilliant at reasoning, context comprehension, and proposal formulation. They must **never** hold authoritative authorization over money, database state, or external side effects.
-
-ApprovalLoop enforces an absolute separation of concerns:
-
-| Responsibility | Component | Implementation |
-| :--- | :--- | :--- |
-| **Reasoning & Proposals** | **Gemini Agent Fleet** | Gemini 3.7 via Google GenAI SDK (`google-genai`) emits structured `AgentActionProposal` |
-| **Identity & Authentication** | **Agent Identity Layer** | HMAC-SHA256 & Google Cloud IAM OIDC zero-trust token verification with replay protection |
-| **Inline Safety Layer** | **Google Cloud Model Armor** | Official Google Cloud Model Armor API (`google-cloud-modelarmor`) inspecting pre-LLM prompts (`SanitizeUserPrompt`) and post-LLM responses (`SanitizeModelResponse`) |
-| **Parameter Integrity** | **4-Point Safety Validator** | Deterministic mathematical checks (exact Decimal precision, ID matching) |
-| **Authorization Policy** | **Policy Engine** | Versioned deterministic profiles (`finance-v3`, `support-v1`, `sales-v1`) |
-| **Execution Governance** | **Agent Gateway** | Emits `ALLOW`, `REQUIRE_HUMAN_APPROVAL`, or `DENY` decisions |
-| **Persistent Context** | **Memory Bank** | PostgreSQL-backed cross-session state, action history, and pause/resume capability |
-| **Asynchronous Execution** | **Async Runtime & Workers** | Leased task execution with crash recovery, retry backoff, and idempotency keys |
-| **Audit & Observability** | **OpenTelemetry** | Distributed traces and audit ledger reconstructing full causality with correlation IDs |
+- [What it does](#what-it-does)
+- [How it works](#how-it-works)
+- [What is real and what is not](#what-is-real-and-what-is-not)
+- [Policy limits](#policy-limits)
+- [Project layout](#project-layout)
+- [Run it locally](#run-it-locally)
+- [Configuration](#configuration)
+- [API overview](#api-overview)
+- [Tests and evaluation](#tests-and-evaluation)
+- [Deploy to Google Cloud](#deploy-to-google-cloud)
+- [Known limitations](#known-limitations)
+- [Further reading](#further-reading)
+- [License](#license)
 
 ---
 
-## 3. Architecture & Control Plane Flow
+## What it does
 
-```text
-                                              AGENT
-                                                │
-                                                ▼
-                                    GOOGLE CLOUD MODEL ARMOR
-                               (Pre-LLM: SanitizeUserPrompt API)
-                                                │
-                                                ▼
-                                             GEMINI
-                                 (Google GenAI SDK - Gemini 3.7)
-                                                │
-                                                ▼
-                                    GOOGLE CLOUD MODEL ARMOR
-                               (Post-LLM: SanitizeModelResponse API)
-                                                │
-                                                ▼
-                                          AGENT GATEWAY
-                                      (ApprovalLoop Control Plane)
-                                                │
-                                                ▼
-                                          POLICY ENGINE
-                               (Deterministic Profiles: finance-v3)
-                                                │
-                                                ▼
-                                          ASYNC RUNTIME
-                                    (Leased Async Execution)
-                                                │
-                                                ▼
-                                     TOOL / ENTERPRISE ACTION
-                                                 │
-                                                 ▼
-                                            MEMORY UPDATE
-                                       (Persistent Memory Bank)
-                                                 │
-                                                 ▼
-                                       AUDIT & OPENTELEMETRY
+1. **Gates agent actions.** Every proposal from an agent goes through one gateway. It is allowed and executed automatically, held for a human approver, or denied, depending on fixed rules, not on what the model writes.
+2. **Lets a person decide held actions.** Held actions wait in a durable queue. An operator approves or rejects them in the console, and every decision is recorded with the policy version, the reason and who decided.
+3. **Chases stalled expense approvals.** A scheduled "tick" finds expense reports waiting too long, reminds the approver, then escalates to a backup. An LLM may write the reminder wording; code supplies every fact in the message.
+
+## How it works
+
+```
+Agent (finance / support / sales)
+   │  AgentActionProposal + signed credential
+   ▼
+Agent Gateway ──► 1. Identity: HMAC or Google OIDC token, agent registered, active, action allow-listed, request not replayed
+              ──► 2. Text screening: Google Cloud Model Armor (when credentials exist) + pattern filter
+              ──► 3. Policy: versioned limits per agent profile, plus a daily cap per agent
+   │
+   ├── ALLOW ──► idempotent executor ──► audit trail
+   ├── HOLD  ──► paused workflow ──► human approves / rejects in the console ──► executor or audit trail
+   └── DENY  ──► audit trail (nothing runs)
 ```
 
----
+The expense-reminder loop (`POST /api/tick`) is separate:
 
-## 4. Gemini Agent Fleet
+```
+open reports → overdue? → claim (no duplicates) → LLM drafts wording → code builds the message
+→ validator checks recipient, amount, report and state → policy → send → state change only if nothing changed meanwhile
+```
 
-ApprovalLoop orchestrates a scalable network of specialized institutional agents built on the **Google Agent Framework (Google GenAI SDK `google-genai`)** with **Gemini 3.7 Flash**:
+Key design choices:
 
-1. **Finance Agent (`finance-agent` v1.2.0):** Evaluates corporate refund claims, invoice anomalies, and stalled expense approvals. Formulates structured proposals (`issue_refund`, `approve_expense`, `escalate_stalled_approval`).
-2. **Support Agent (`support-agent` v1.1.0):** Evaluates customer SLA disputes and service outages. Formulates structured compensation proposals (`credit_account`, `escalate_ticket`, `sla_override`).
-3. **Sales Agent (`sales-agent` v1.0.0):** Evaluates enterprise contract terms and ARR margins. Formulates structured commercial discount proposals (`grant_discount`, `waive_fee`, `custom_contract_terms`).
+- **The model never holds authority.** Whether an action runs depends only on structured fields (agent, action, amount, currency, recipient), never on the justification text.
+- **Fail closed.** Unknown policy profiles, unsupported currencies, invalid amounts, missing credentials and unconfigured OIDC audiences all lead to denial or human review, never execution.
+- **At most once.** Approvals are single-winner (a conditional database update), and execution uses idempotency keys.
 
-**Zero Direct Tool Access:** Fleet agents have **zero** direct network access to databases or payment APIs. Every proposed action is emitted as a strictly typed Pydantic `AgentActionProposal` and submitted to the Gateway.
+## What is real and what is not
 
----
+| Area | Status | Details |
+|---|---|---|
+| Gateway, identity, policy, daily cap | **Implemented and tested** | Policy decisions matched the documented limits in 20,040 of 20,040 evaluated cases. |
+| Human approval queue | **Implemented and tested** | Durable in PostgreSQL; approvals expire after 24 h; an agent that has been disabled cannot have its actions approved. |
+| Approval atomicity | **Implemented and tested** | Single winner across separate database connections. Not yet load-tested on Cloud SQL. |
+| Request-bound agent tokens | **Implemented** | Tokens are tied to one request and a hash of the proposal. Enforced by default only in production. |
+| Replay protection | **Implemented** | Stored in the database, so it holds across instances. |
+| PostgreSQL storage | **Implemented and tested** | Schema created on start-up. Without `DATABASE_URL` the API uses in-memory storage (refused in production). |
+| Operator console (React) | **Implemented** | Approvals, activity, agents, expenses and a sandbox. |
+| LLM use (Gemini) | **Limited** | The model writes justifications and reminder wording only. Amounts, recipients and actions come from code, not the model. With no `GEMINI_API_KEY`, fixed templates are used. |
+| Google Cloud Model Armor | **Optional** | Used only when Google credentials are available. Otherwise it is silently skipped and only the pattern filter runs. |
+| Pattern filter | **Partial** | Catches known injection phrases, including disguised ones (look-alike letters, hidden characters, digit swaps, spacing, Base64). It does **not** catch reworded instructions: 0 of 8 in our tests. The policy limits, not this filter, bound what an attack can achieve. |
+| "Multi-agent" fleet | **Demo only** | Three agents (finance, support, sales) send proposals independently. A `FleetOrchestrator` chains four helper agents, but it is used only in tests and its agent is not registered in the running app. |
+| Slack and SMTP notifications | **Adapters only** | `SlackNotificationProvider` and `EmailNotificationProvider` exist, but the running app always uses the mock notifier. |
+| Executing real refunds, credits or discounts | **Not implemented** | Execution is simulated by the mock notifier. |
+| Async task runtime with leases | **Implemented, not wired** | Implemented and tested, but not used by any API route. |
 
-## 4.1 Google Agent Framework Integration
+## Policy limits
 
-ApprovalLoop explicitly satisfies the All Things Agentic Hackathon requirement for using an official Google Agent Framework.
+Defined in `backend/approval_loop/policy/policy_engine.py`. The server enforces these; the console shows a read-only copy.
 
-### Framework & Package Details
-* **Framework Used:** Google GenAI SDK
-* **Package:** `google-genai` (`google-genai>=2.0.0`)
-* **Implementation Location:** [`backend/approval_loop/agent/fleet.py`](file:///d:/hackathon/backend/approval_loop/agent/fleet.py) and [`backend/approval_loop/agent/drafter.py`](file:///d:/hackathon/backend/approval_loop/agent/drafter.py)
-* **Verification Test Suite:** [`backend/tests/test_agent_framework.py`](file:///d:/hackathon/backend/tests/test_agent_framework.py)
+| Profile | Runs automatically | Needs a person | Blocked | Daily automatic cap per agent |
+|---|---|---|---|---|
+| `finance-v3` (INR) | under 5,000 | 5,000 – 25,000 | above 25,000 | 50,000 |
+| `finance-v3` (USD) | under 50 | 50 – 250 | above 250 | 500 |
+| `support-v1` (INR) | under 2,000 | 2,000 – 10,000 | above 10,000 | 20,000 |
+| `support-v1` (USD) | under 20 | 20 – 100 | above 100 | 200 |
+| `sales-v1` (discount %) | up to 10% | over 10% – 30% | above 30% | none |
 
-### Functional Responsibilities
-1. **Context Analysis & Action Proposal Formulation:** Fleet agents (`FinanceAgent`, `SupportAgent`, `SalesAgent`) use `genai.Client` to analyze operational events, evaluate financial/SLA state, and emit structured Pydantic `AgentActionProposal` objects.
-2. **Multi-Agent Fleet Delegation:** `FleetOrchestrator` delegates tasks across `WorkflowAgent`, `PolicyAgent`, `CommunicationAgent`, and `EscalationAgent`, leveraging `google-genai` for risk tier assessment and notification wording generation.
-3. **Language Drafting:** `GeminiAgentDrafter` invokes `google-genai` with structured JSON parsing to generate contextual nudge and escalation messages.
+Once an agent's automatically executed total for the day would exceed its cap, further proposals are held for a person.
 
-### Governance & Non-Bypassability Invariant
-The Google Agent Framework integration operates strictly within the input stage of ApprovalLoop's control plane. Framework agents formulate proposals and reasoning, but hold **zero direct execution authority**. Every proposal emitted by the framework must pass through:
-1. **Zero-Trust Identity Gate:** Cryptographic HMAC / OIDC token verification.
-2. **Google Cloud Model Armor:** Pre-LLM prompt inspection and post-LLM output verification.
-3. **Deterministic Policy Engine:** Hard monetary and rule-based policy enforcement (`ALLOW`, `REQUIRE_HUMAN_APPROVAL`, or `DENY`).
+## Project layout
 
-Even if a model response attempts prompt injection or recommends an unauthorized monetary action, the deterministic policy layer retains 100% authority and blocks the action.
+```
+backend/approval_loop/
+  api/            FastAPI app, routes, operator and scheduler auth
+  gateway/        AgentGateway: identity → screening → policy → decision
+  identity/       agent tokens (HMAC, Google OIDC), replay protection
+  guardrails/     Model Armor client + pattern filter
+  policy/         versioned policy profiles and daily caps
+  memory/         Memory Bank: workflows, decisions, human approval state
+  engine.py       expense-reminder loop
+  agent/          fleet agents, prompts, wording drafter
+  storage/        repository interface, in-memory and PostgreSQL implementations, SQL schema
+  worker/         notification providers (mock, Slack, SMTP)
+  runtime/        async task runtime (not wired to routes)
+backend/tests/    210 tests
+frontend/         React + TypeScript + Tailwind operator console
+evals/            demo and simulation scripts
+paper/            IEEE-style evaluation paper and reproducible harness
+docs/             study guide and architecture diagram
+skills/           procedural "skill" files loaded by the reminder loop
+```
 
-### Hackathon Compliance Mapping
+## Run it locally
 
-| Requirement | Implementation | Location | Purpose |
-| :--- | :--- | :--- | :--- |
-| **At least one Google Agent Framework** | **Google GenAI SDK (`google-genai`)** | [`backend/approval_loop/agent/fleet.py`](file:///d:/hackathon/backend/approval_loop/agent/fleet.py)<br>[`backend/approval_loop/agent/drafter.py`](file:///d:/hackathon/backend/approval_loop/agent/drafter.py) | Autonomous action proposal formulation, risk assessment, multi-agent fleet delegation, and language drafting |
+**Requirements:** Python 3.10+, Node.js 20+. PostgreSQL is optional locally.
 
----
+**1. Backend**
 
-## 5. Agent Registry & Identity
-
-Persistent in **PostgreSQL**, the Agent Registry defines the identity, capabilities, and boundaries of every registered agent:
-- `agent_id`: Unique identifier (e.g. `finance-agent`)
-- `name`: Human-readable agent title
-- `description`: Role and functional boundary
-- `version`: Running semver (e.g. `1.2.0`)
-- `owner`: Operational owner email
-- `status`: `ACTIVE`, `DISABLED`, `DEPRECATED`
-- `capabilities`: Registered cognitive capabilities
-- `allowed_tools`: Authorized tool list
-- `allowed_actions`: Authorized action whitelist
-- `policy_profile`: Applied policy profile (`finance-v3`)
-- `risk_level`: Assigned risk classification (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`)
-
-**Zero-Trust Identity Enforcement:**
-- HMAC-SHA256 token verification with timestamp window & request_id replay protection.
-- Google Cloud IAM OIDC token verification hook.
-- Strict agent status & `allowed_actions` whitelist checks before any proposal reaches policy evaluation.
-
----
-
-## 6. Model Armor-Inspired Deterministic Safety Guardrail
-
-The `ModelSafetyGuardrail` operates before and after LLM inference as a deterministic defense layer:
-- **Prompt Injection Defense:** Intercepts instruction overrides (`ignore prior rules`, `DAN mode`, `developer mode`, `system override`).
-- **Tool Poisoning & Command Injection:** Rejects malicious payloads (`drop table`, `rm -rf`, `eval()`, `exec()`, `curl | sh`, `system()`).
-- **Credential Leakage Prevention:** Scans inputs and outputs for API keys and secrets (Google API keys, AWS keys, GitHub tokens, Slack tokens, JWTs, private keys).
-- **Script & HTML Injection:** Filters `<script>`, `javascript:`, `onload=` payloads.
-
----
-
-## 7. Deterministic Policy Engine
-
-Policy decisions are 100% deterministic, immutable, and reproducible:
-- **Unknown Profile Fail-Closed:** Unknown policy profiles are rejected immediately.
-- **Currency & Amount Enforcement:** Supported currencies (`USD`, `INR`) are validated; negative amounts rejected. Exact `Decimal` arithmetic is preserved throughout.
-
-### Policy Profile: `finance-v3`
-- **$<\text{INR } 5,000$ ($<\$50$):** `ALLOW` (Autonomous Execution)
-- **$\text{INR } 5,000–\text{INR } 25,000$ ($\$50–\$250$):** `REQUIRE_HUMAN_APPROVAL` (Mandatory Human Sign-Off)
-- **$>\text{INR } 25,000$ ($>\$250$):** `DENY` (Deterministic Rejection)
-
----
-
-## 8. Durable Async Runtime & Persistent Memory Bank
-
-- **PostgreSQL Memory Bank:** Stores workflow state, session IDs, action history, previous decisions, and approval records across restarts.
-- **Durable Task Leasing:** `AsyncAgentRuntime` persists task records (`async_tasks` table in PostgreSQL), managing lease acquisition, lease expiry, exponential retry backoff, and crash recovery. Tasks do not disappear when Cloud Run restarts.
-- **Single-Claim Approval Transitions:** Atomic transitions guarantee concurrent approval requests result in exactly one successful execution.
-
----
-
-## 9. Observability & OpenTelemetry
-
-- **Correlated Spans:** Traces span across `observe` -> `eligibility` -> `skill.load` -> `claim` -> `gemini.draft` -> `validation` -> `policy.check` -> `notification` -> `state_transition`.
-- **Correlation IDs:** `trace_id`, `proposal_id`, `workflow_id`, `task_id` propagate across all steps.
-- **Secret Redaction:** Attributes containing `key`, `secret`, `password`, `token`, `auth` are automatically redacted.
-
----
-
-## 10. Killer Demo Workflow
-
-**Stale Expense Approval (Case B)**:
-1. An expense approval has been pending for 48 hours.
-2. Background trigger fires (Cloud Scheduler / API tick).
-3. Agent wakes autonomously and reads persistent Memory Bank context.
-4. Gemini analyzes the situation and drafts a structured escalation proposal.
-5. Agent Gateway verifies identity (HMAC/OIDC).
-6. Safety layer checks input/output (Deterministic Model Safety Guardrail).
-7. Policy evaluates risk: refund amount ₹20,000 ($200) falls in the medium-risk tier (`REQUIRE_HUMAN_APPROVAL`).
-8. Workflow pauses durably in Memory Bank.
-9. Human Approval Queue displays the pending decision.
-10. Operator approves via UI/API.
-11. Async worker resumes, executes action, updates memory, and emits full OpenTelemetry trace.
-
----
-
-## 11. Implemented vs Roadmap
-
-### IMPLEMENTED & VERIFIED
-- [x] Autonomous Agent wake-up & Gemini 3.7 reasoning
-- [x] Gemini structured proposal generation via Pydantic
-- [x] Agent Registry with status, capabilities & allowed actions
-- [x] Zero-Trust Identity Provider (HMAC-SHA256 + GCP OIDC + Replay Protection)
-- [x] Custom Deterministic Model-Safety Guardrail (prompt defense & secret leakage filter)
-- [x] Deterministic Policy Engine (`finance-v3`, `support-v1`, `sales-v1`)
-- [x] Human-in-the-Loop Approval Queue & durable workflow pause/resume
-- [x] Durable Async Runtime with task leasing & crash recovery (PostgreSQL `FOR UPDATE SKIP LOCKED`)
-- [x] Distributed Replay Protection with database-backed request ID deduplication
-- [x] Persistent Memory Bank (PostgreSQL & in-memory). Approval claims commit by compare-and-set (repository lock in memory, conditional `UPDATE` in PostgreSQL)
-- [x] OpenTelemetry correlated distributed tracing & Observability ("Why did ApprovalLoop act?")
-- [x] Real Notification Providers (Slack Webhook & SMTP Email adapters)
-- [x] 3-Tier Demo Scenarios (Case A ALLOW, Case B HUMAN APPROVAL, Case C DENY)
-- [x] Google Cloud Run & Cloud Scheduler deployment automation
-- [x] Backend test suite: 210 tests, all passing (`cd backend && PYTHONPATH=. python -m pytest tests`).
-
-### OPTIONAL / FUTURE ROADMAP
-- [ ] Direct Google Cloud Pub/Sub integration for sub-second event streaming
-- [ ] PostgreSQL high availability / read replicas (Cloud SQL HA)
-- [ ] Enterprise SSO (Okta / Azure AD SAML) integration
-
----
-
-## 12. Local Setup & Testing
-
-### Prerequisites
-- Python 3.10+
-- Node.js 20+
-- PostgreSQL 14+ for persistent storage (optional locally: without `DATABASE_URL` the API uses in-memory storage, which is refused in production)
-
-### Step 1: Clone & Setup Virtual Environment
 ```bash
-git clone https://github.com/aaminashihab/approvalLoop.git
-cd approvalLoop
+cd backend
 python -m venv .venv
-# On Windows:
-.venv\Scripts\activate
-# On Linux/macOS:
-source .venv/bin/activate
-
-pip install -r backend/requirements-dev.txt   # runtime + test deps
+source .venv/Scripts/activate        # Windows (Git Bash); on macOS/Linux: source .venv/bin/activate
+pip install -r requirements-dev.txt
+APP_ENV=demo python -m uvicorn approval_loop.api.app:app --port 8080
 ```
 
-### Step 2: Environment Variables
-Create a `.env` file or export:
+This runs with in-memory storage, which is lost on restart. To use PostgreSQL, set `DATABASE_URL` first:
+
 ```bash
-APP_ENV=demo
-GOOGLE_CLOUD_PROJECT=approval-loop-hackathon
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.7-flash
-SCHEDULER_API_KEY=dev-scheduler-secret-key
-AGENT_IDENTITY_SECRET=fleet-identity-master-secret-key-2026
-ALLOW_INSECURE_DEMO_AUTH=false
-# Optional locally, required in production:
-DATABASE_URL=postgresql://approvalloop:approvalloop@localhost:5432/approvalloop
+export DATABASE_URL=postgresql://approvalloop:approvalloop@localhost:5432/approvalloop
 ```
 
-The schema (`backend/approval_loop/storage/postgres_schema.sql`) is created automatically on start-up.
-To run the API with PostgreSQL in Docker instead: `docker compose up --build` (http://localhost:8080).
+**2. Console**
 
-### Step 3: Run Tests
 ```bash
-# Run full pytest suite (210 tests). PostgreSQL tests use TEST_DATABASE_URL if set,
-# otherwise an embedded server from the `pgserver` dev dependency.
+cd frontend
+npm ci
+npm run dev
+```
+
+Open http://localhost:3000; the dev server forwards `/api` to port 8080. The console asks for an operator key: in local demo mode, this is the value of `SCHEDULER_API_KEY` (a development default is set in `config.py`; never use it outside your machine).
+
+**3. Try it:** in the console's Sandbox, send the small, medium and oversized refunds. They should be allowed, held and blocked respectively. Then approve the held one under Approvals.
+
+**Alternative, everything in Docker:**
+
+```bash
+docker compose up --build
+```
+
+This starts PostgreSQL and the app, with the built console, on http://localhost:8080.
+
+## Configuration
+
+All settings are environment variables (see `backend/approval_loop/config.py`).
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `APP_ENV` | `demo`, `test` or `production` | `demo` |
+| `DATABASE_URL` | PostgreSQL connection string. **Required in production.** | unset (in-memory) |
+| `DATABASE_SCHEMA` | PostgreSQL schema | `public` |
+| `SCHEDULER_API_KEY` | Shared key for operators, admin and the scheduler (`X-API-Key` header) | development value; refused in production |
+| `AGENT_IDENTITY_SECRET` | Secret for signing agent tokens | development value; refused in production |
+| `REQUIRE_BOUND_AGENT_TOKENS` | Require tokens bound to one request and proposal | on in production, off otherwise |
+| `OIDC_AUDIENCE` | Expected audience for Google OIDC tokens. Unset disables OIDC (fail closed). `OIDC_EXPECTED_AUDIENCE` is accepted as an alias. | unset |
+| `AGENT_OIDC_BINDINGS` | `agent_id=service-account-email,...` pairs for agent OIDC | empty |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Optional LLM for wording; required in production | unset / `gemini-3.7-flash` |
+| `MODEL_ARMOR_ENABLED` / `MODEL_ARMOR_FAIL_CLOSED` | Google Cloud Model Armor screening (needs Google credentials) | `true` / `true` |
+| `MODEL_ARMOR_LOCATION` / `MODEL_ARMOR_TEMPLATE_ID` | Model Armor region and template | `us-central1` / `default-guardrail` |
+| `APPROVAL_TTL_SECONDS` | How long a held action can still be approved | `86400` (24 h) |
+| `ADMIN_FALLBACK_EMAIL` | Escalation target when no backup approver exists | development value |
+| `APP_ALLOWED_ORIGINS` | CORS origins (no `*` in production) | localhost origins |
+| `ALLOW_INSECURE_DEMO_AUTH` | Allow unauthenticated operator calls outside production | `false` |
+| `GOOGLE_CLOUD_PROJECT` | Google Cloud project for OIDC and Model Armor | set in config |
+
+Production start-up is refused if default secrets are used, `DATABASE_URL` or `GEMINI_API_KEY` is missing, insecure demo auth is enabled, or CORS allows `*`.
+
+## API overview
+
+All routes are under `/api`. Interactive documentation is at `/docs` when the server is running.
+
+| Method and path | What it does | Auth |
+|---|---|---|
+| `POST /gateway/propose` | Submit an agent proposal; returns the decision | agent token |
+| `GET /gateway/actions/pending` | Held actions waiting for a person | operator |
+| `POST /gateway/actions/{id}/approve` · `/reject` | Decide a held action (body: `{"notes": "..."}`); the approve response includes an explicit `execution` status | operator |
+| `GET /memory/workflows` | Workflow history with decisions, reviews and execution results | operator in production |
+| `GET /registry/agents` | List agents | operator in production |
+| `POST /registry/agents/{id}/status` | Enable or disable an agent | admin |
+| `GET /reports` · `GET /actions` | Expense reports and reminder log | operator in production |
+| `POST /reports` · `POST /reports/{id}/resolve` | Create or resolve an expense report | operator |
+| `POST /tick` | Run the reminder loop (called by Cloud Scheduler) | scheduler |
+| `GET /actions/{id}/why-acted` | Explain why the reminder loop acted | **none, even in production** (see limitations) |
+| `GET /metrics` · `GET /traces` | Counters and recent traces | operator in production |
+| `GET /agbom` | Agent inventory | none |
+| `POST /demo/*` · `/seed` · `/simulate-*` | Sandbox scenarios; these endpoints do not exist (404) in production | none |
+| `GET /health/live` · `/health/ready` | Health checks (outside `/api`) | none |
+
+## Tests and evaluation
+
+```bash
 cd backend
 PYTHONPATH=. python -m pytest tests -q
 ```
 
-### Step 4: Run Backend & Frontend Locally
-```bash
-# Terminal 1: Backend API
-python -m uvicorn approval_loop.api.app:app --host 0.0.0.0 --port 8080 --reload
+The suite has 210 tests. Twelve run against a real PostgreSQL server: set `TEST_DATABASE_URL`, or leave it unset to start an embedded server from the `pgserver` dev dependency. CI runs on Python 3.10 and 3.11 with a PostgreSQL 16 service, builds the console, and builds the Docker image.
 
-# Terminal 2: Frontend Dev Server
-cd frontend
-npm install
-npm run dev
-```
+`paper/` contains an IEEE-style evaluation with a reproducible harness (`paper/eval/run_evaluation.py`). Measured in-process on a laptop, after the fixes it reports:
 
----
+- **Speed:** median gateway decision 0.26–0.29 ms; approving one action takes about 0.11 ms whether 100 or 10,000 workflows are stored.
+- **Policy:** 20,040 of 20,040 decisions matched the documented limits.
+- **Concurrency:** exactly one approval won in all 200 concurrent-approval races.
+- **Text filter:** 25 of 34 attacks detected and 0 of 30 normal texts flagged. No undetected attack reached a more permissive outcome than its amount allowed.
 
-## 13. Google Cloud Deployment
+These figures exclude network, database and model latency. The attack sets are small and written by the author, and no real LLM was used in the evaluation.
 
-Deploy ApprovalLoop to **Google Cloud Run** with **Cloud Scheduler** and **Cloud SQL for PostgreSQL**:
+## Deploy to Google Cloud
+
+`deploy.sh` deploys to Cloud Run, connects Cloud SQL for PostgreSQL, and creates a Cloud Scheduler job for `/api/tick`:
 
 ```bash
-# Set Google Cloud credentials & project
-export GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
-export GEMINI_API_KEY="your-gemini-api-key"
-export REGION="us-central1"
-export APP_ENV="demo"
-export CLOUD_SQL_INSTANCE="your-gcp-project-id:us-central1:approvalloop"      # Cloud SQL (PostgreSQL) instance
+export GOOGLE_CLOUD_PROJECT=your-project
+export CLOUD_SQL_INSTANCE=your-project:us-central1:approvalloop
 export DATABASE_URL="postgresql://USER:PASSWORD@/approvalloop?host=/cloudsql/$CLOUD_SQL_INSTANCE"
-# With USE_SECRET_MANAGER=true, store the URL in the secret "database-url" instead of exporting it.
-
-# Execute automated deployment script
-chmod +x deploy.sh
+export GEMINI_API_KEY=...
 ./deploy.sh
 ```
 
----
+With `USE_SECRET_MANAGER=true`, secrets are read from Secret Manager (`gemini-api-key`, `scheduler-api-key`, `database-url`) instead of the environment. The GitHub workflow `.github/workflows/deploy.yml` does the same when the `GCP_SA_KEY` and `CLOUD_SQL_INSTANCE` repository secrets are set. Neither path has been run against a real Google Cloud project as part of this work.
 
-## 13a. Known Limitations (audit, Nov 2026)
+## Known limitations
 
-- **Approval claims are a conditional `UPDATE` in PostgreSQL**, tested with two connection pools racing against a real PostgreSQL 16 server. Not yet load-tested against a managed Cloud SQL instance.
-- **Executor is a stub.** `MockNotificationProvider`/`ProductionNotificationProvider` only simulate dispatch; no real refund/credit/discount integration exists. A failed execution after approval marks the workflow `FAILED`; there is no automatic retry or dead-letter path for gateway actions.
-- **Agent token binding is enforced only in production** (`REQUIRE_BOUND_AGENT_TOKENS`, default on when `APP_ENV=production`): tokens carry the request_id and a SHA-256 digest of the proposal. The replay cache and the daily auto-approve cap are per-process; multi-instance deployments need a shared store for both.
-- **One shared static key** (`SCHEDULER_API_KEY`) acts as scheduler, admin and operator credential; operator identity from it is not individually attributable. OIDC auth requires `OIDC_AUDIENCE` (and `AGENT_OIDC_BINDINGS` for agents) and is otherwise disabled.
-- **Frontend credentials:** the UI no longer embeds a key. Operators paste a key into the in-app prompt (kept in `sessionStorage`). This is a stopgap; production should front the UI with an identity-aware proxy / OIDC login. The policy limits drawn in the approval screen are a display-only copy of the backend limits (`frontend/src/components/PolicyBand.tsx`) and can drift from the server.
-- **No multi-tenancy**, rate limiting, request-size limits, or audit-data redaction/retention policy exist.
-- The safety guardrail is regex-based (it also matches de-obfuscated text: homoglyphs, invisible characters, digit swaps, letter spacing, Base64) and inspects only `justification`. It does not catch paraphrased instructions; the policy tiers and the per-agent daily auto-approve cap are the actual bound on what an injected proposal can do.
-- Default secrets in config/README are for local demo only; `APP_ENV` defaults to `demo`.
+- **Two read endpoints are unauthenticated.** `GET /api/actions/{id}/why-acted` (reminder-action details, including recipients) and `GET /api/agbom` (agent inventory) need no key, even in production.
+- **One shared key for people.** Operators, admin and the scheduler share `SCHEDULER_API_KEY`, so decisions are recorded as "Admin Operator (API-Key)" rather than a named person. Production use needs real sign-in (OIDC) in front of the console.
+- **Daily cap is per server.** The cap total and the in-memory fallback for replay protection are kept in each process; several API instances need these in the shared database.
+- **No real execution.** Approved actions are recorded and "sent" through a mock notifier; no payment, CRM or ticketing system is called.
+- **Limited model role.** See [What is real and what is not](#what-is-real-and-what-is-not); making the model choose structured proposals (with the gateway still enforcing limits) is the main open step.
+- **Policy limits are duplicated** in the console (`frontend/src/lib/policy.ts`) for display; the server is authoritative.
+- **No** multi-tenancy, rate limiting, per-recipient limits or data-retention policy.
 
----
+## Further reading
 
-## 14. License
+- `docs/STUDY_GUIDE.md`: a guided walk through the code, with exercises and a plan for extending it into a real multi-agent system.
+- `paper/approvalloop.pdf`: design, evaluation and the defects found and fixed.
 
-Licensed under the [Apache License 2.0](LICENSE).
+## License
+
+No license file has been added yet, so all rights are reserved by default. Add a `LICENSE` file (for example Apache-2.0 or MIT) before others reuse the code.
