@@ -134,15 +134,17 @@ def verify_operator_auth(
         detail="Unauthorized: human operator authentication required (valid OIDC Bearer token or X-API-Key required)."
     )
 
-def _verify_oidc_jwt(token: str, expected_project: str, audience: str | None = None) -> dict | None:
+def _verify_oidc_jwt(token: str, expected_project: str, expected_audience: str | None = None) -> dict | None:
     """
     Cryptographically verifies Google OIDC tokens using google.oauth2.id_token.
 
     Fails closed when:
     - no expected audience is configured (OIDC_AUDIENCE): without an audience check, ANY
       Google-signed ID token (e.g. for any Google account) would authenticate;
-    - signature, issuer, expiry, or audience verification fails.
+    - signature, expiry or audience verification fails;
+    - the issuer is not Google, or the token has neither a subject nor an email claim.
     """
+    audience = expected_audience
     if not audience:
         logger.warning("OIDC bearer token rejected: OIDC_AUDIENCE is not configured (OIDC auth disabled).")
         return None
@@ -150,7 +152,15 @@ def _verify_oidc_jwt(token: str, expected_project: str, audience: str | None = N
         from google.oauth2 import id_token
         from google.auth.transport import requests
         req = requests.Request()
-        return id_token.verify_oauth2_token(token, req, audience=audience)
+        id_info = id_token.verify_oauth2_token(token, req, audience=audience)
+        iss = id_info.get("iss", "")
+        if iss not in ("https://accounts.google.com", "accounts.google.com"):
+            logger.warning("OIDC token verification failed: untrusted issuer %s", iss)
+            return None
+        if not id_info.get("sub") and not id_info.get("email"):
+            logger.warning("OIDC token verification failed: missing subject/email claim")
+            return None
+        return id_info
     except Exception as e:
         logger.warning("OIDC token cryptographic verification failed: %s", type(e).__name__)
         return None
@@ -165,8 +175,3 @@ def require_operator_in_production(
     if settings.app_env == AppEnvironment.PRODUCTION:
         return verify_operator_auth(settings=settings, x_api_key=x_api_key, auth_cred=auth_cred)
     return "non-production"
-
-def require_non_production(settings: Settings = Depends(get_settings_dep)) -> None:
-    """Demo/seed/simulation endpoints do not exist in PRODUCTION (404)."""
-    if settings.app_env == AppEnvironment.PRODUCTION:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")

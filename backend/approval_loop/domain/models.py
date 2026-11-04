@@ -84,7 +84,7 @@ class NotificationEnvelope(BaseModel):
     recipient: str
     submitter_name: str
     subject: str
-    body_text: str  # Gemini 3.5 drafts the wording
+    body_text: str  # Gemini 3.7 drafts the wording
     raw_llm_draft: Optional[str] = None
 
     @field_validator("amount", mode="before")

@@ -66,7 +66,10 @@ def test_key_matches_handles_non_ascii_without_raising():
 
 
 def test_non_ascii_api_key_gets_401_not_500():
-    settings = Settings(app_env=AppEnvironment.PRODUCTION, scheduler_api_key="prod-key-xyz")
+    settings = Settings(app_env=AppEnvironment.PRODUCTION, scheduler_api_key="prod-key-xyz",
+                        agent_identity_secret="prod-identity-secret-123", admin_fallback_email="admin@company.com",
+                        gemini_api_key="sk-real-gemini-key", google_cloud_project="my-prod-project",
+                        database_url="postgresql://localhost/approvalloop_test")
     with pytest.raises(HTTPException) as exc:
         verify_operator_auth(settings=settings, x_api_key="clé-invalide")
     assert exc.value.status_code == 401

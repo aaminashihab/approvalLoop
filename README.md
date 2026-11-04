@@ -4,9 +4,7 @@
 
 > [!IMPORTANT]
 > **Core Architectural Invariant**:
-> **AI proposes. Deterministic policy decides. Infrastructure executes.**
-
-ApprovalLoop bridges autonomous intelligence (**Google Gemini 3.5+**, **Google Agent Framework**) with deterministic corporate governance, zero-trust cryptographic identity, persistent memory banks, leased async execution, and mathematical safety gates.
+> **AI proposes. Deterministic policy decides. Infrastructure executes.**ApprovalLoop bridges autonomous intelligence (**Google Gemini 3.7+**, **Google Agent Framework**) with deterministic corporate governance, zero-trust cryptographic identity, persistent memory banks, leased async execution, and mathematical safety gates.
 
 ---
 
@@ -30,9 +28,9 @@ ApprovalLoop enforces an absolute separation of concerns:
 
 | Responsibility | Component | Implementation |
 | :--- | :--- | :--- |
-| **Reasoning & Proposals** | **Gemini Agent Fleet** | Gemini 3.5 via Google GenAI SDK (`google-genai`) emits structured `AgentActionProposal` |
+| **Reasoning & Proposals** | **Gemini Agent Fleet** | Gemini 3.7 via Google GenAI SDK (`google-genai`) emits structured `AgentActionProposal` |
 | **Identity & Authentication** | **Agent Identity Layer** | HMAC-SHA256 & Google Cloud IAM OIDC zero-trust token verification with replay protection |
-| **Prompt & Payload Defense** | **Model Safety Guardrail** | Model Armor-inspired deterministic safety filter intercepting prompt injections & secret leaks |
+| **Inline Safety Layer** | **Google Cloud Model Armor** | Official Google Cloud Model Armor API (`google-cloud-modelarmor`) inspecting pre-LLM prompts (`SanitizeUserPrompt`) and post-LLM responses (`SanitizeModelResponse`) |
 | **Parameter Integrity** | **4-Point Safety Validator** | Deterministic mathematical checks (exact Decimal precision, ID matching) |
 | **Authorization Policy** | **Policy Engine** | Versioned deterministic profiles (`finance-v3`, `support-v1`, `sales-v1`) |
 | **Execution Governance** | **Agent Gateway** | Emits `ALLOW`, `REQUIRE_HUMAN_APPROVAL`, or `DENY` decisions |
@@ -45,59 +43,33 @@ ApprovalLoop enforces an absolute separation of concerns:
 ## 3. Architecture & Control Plane Flow
 
 ```text
-                                  EVENT / TRIGGER (Cloud Scheduler)
-                                                 │
-                                                 ▼
-                                     AUTONOMOUS AGENT WAKE-UP
-                                                 │
-                                                 ▼
-                                            READ MEMORY
-                                       (Persistent Memory Bank)
-                                                 │
-                                                 ▼
-                                     GEMINI REASONING / PLANNING
-                                     (Google GenAI SDK - Gemini 3.5)
-                                                 │
-                                                 ▼
-                                     STRUCTURED ACTION PROPOSAL
-                                        (AgentActionProposal)
-                                                 │
-                                                 ▼
-                                          AGENT REGISTRY &
-                                           IDENTITY AUTH
-                                     (HMAC / GCP OIDC Verification)
-                                                 │
-                                                 ▼
-                                           AGENT GATEWAY
-                                           (ApprovalLoop)
-                                                 │
-                        ┌────────────────────────┼────────────────────────┐
-                        ▼                        ▼                        ▼
-                  Model Safety                Policy                Deterministic
-                    Guardrail                 Engine                  Validator
-                 (Model Armor)            (Domain/Limits)           (Facts/Types)
-                        │                        │                        │
-                        └────────────────────────┼────────────────────────┘
-                                                 │
-                                                 ▼
-                                       GATEWAY DECISION
-                                                 │
-                        ┌────────────────────────┼────────────────────────┐
-                        ▼                        ▼                        ▼
-                      ALLOW            REQUIRE_HUMAN_APPROVAL           DENY
-                        │                        │                        │
-                 Auto Execution           Workflow Paused           Blocked & Audited
-                        │                        │
-                        │                  Human Decision
-                        │                 (Approve/Reject)
-                        │                        │
-                        └────────────────────────┼────────────────────────┘
-                                                 │ Resumed
-                                                 ▼
-                                       ASYNC RUNTIME / WORKER
-                                    (PostgreSQL Leased Claims)
-                                                 │
-                                                 ▼
+                                              AGENT
+                                                │
+                                                ▼
+                                    GOOGLE CLOUD MODEL ARMOR
+                               (Pre-LLM: SanitizeUserPrompt API)
+                                                │
+                                                ▼
+                                             GEMINI
+                                 (Google GenAI SDK - Gemini 3.7)
+                                                │
+                                                ▼
+                                    GOOGLE CLOUD MODEL ARMOR
+                               (Post-LLM: SanitizeModelResponse API)
+                                                │
+                                                ▼
+                                          AGENT GATEWAY
+                                      (ApprovalLoop Control Plane)
+                                                │
+                                                ▼
+                                          POLICY ENGINE
+                               (Deterministic Profiles: finance-v3)
+                                                │
+                                                ▼
+                                          ASYNC RUNTIME
+                                    (Leased Async Execution)
+                                                │
+                                                ▼
                                      TOOL / ENTERPRISE ACTION
                                                  │
                                                  ▼
@@ -112,13 +84,44 @@ ApprovalLoop enforces an absolute separation of concerns:
 
 ## 4. Gemini Agent Fleet
 
-ApprovalLoop orchestrates a scalable network of specialized institutional agents built on the **Google Agent Framework (Google GenAI SDK `google-genai`)** with **Gemini 3.5 Flash**:
+ApprovalLoop orchestrates a scalable network of specialized institutional agents built on the **Google Agent Framework (Google GenAI SDK `google-genai`)** with **Gemini 3.7 Flash**:
 
 1. **Finance Agent (`finance-agent` v1.2.0):** Evaluates corporate refund claims, invoice anomalies, and stalled expense approvals. Formulates structured proposals (`issue_refund`, `approve_expense`, `escalate_stalled_approval`).
 2. **Support Agent (`support-agent` v1.1.0):** Evaluates customer SLA disputes and service outages. Formulates structured compensation proposals (`credit_account`, `escalate_ticket`, `sla_override`).
 3. **Sales Agent (`sales-agent` v1.0.0):** Evaluates enterprise contract terms and ARR margins. Formulates structured commercial discount proposals (`grant_discount`, `waive_fee`, `custom_contract_terms`).
 
 **Zero Direct Tool Access:** Fleet agents have **zero** direct network access to databases or payment APIs. Every proposed action is emitted as a strictly typed Pydantic `AgentActionProposal` and submitted to the Gateway.
+
+---
+
+## 4.1 Google Agent Framework Integration
+
+ApprovalLoop explicitly satisfies the All Things Agentic Hackathon requirement for using an official Google Agent Framework.
+
+### Framework & Package Details
+* **Framework Used:** Google GenAI SDK
+* **Package:** `google-genai` (`google-genai>=2.0.0`)
+* **Implementation Location:** [`backend/approval_loop/agent/fleet.py`](file:///d:/hackathon/backend/approval_loop/agent/fleet.py) and [`backend/approval_loop/agent/drafter.py`](file:///d:/hackathon/backend/approval_loop/agent/drafter.py)
+* **Verification Test Suite:** [`backend/tests/test_agent_framework.py`](file:///d:/hackathon/backend/tests/test_agent_framework.py)
+
+### Functional Responsibilities
+1. **Context Analysis & Action Proposal Formulation:** Fleet agents (`FinanceAgent`, `SupportAgent`, `SalesAgent`) use `genai.Client` to analyze operational events, evaluate financial/SLA state, and emit structured Pydantic `AgentActionProposal` objects.
+2. **Multi-Agent Fleet Delegation:** `FleetOrchestrator` delegates tasks across `WorkflowAgent`, `PolicyAgent`, `CommunicationAgent`, and `EscalationAgent`, leveraging `google-genai` for risk tier assessment and notification wording generation.
+3. **Language Drafting:** `GeminiAgentDrafter` invokes `google-genai` with structured JSON parsing to generate contextual nudge and escalation messages.
+
+### Governance & Non-Bypassability Invariant
+The Google Agent Framework integration operates strictly within the input stage of ApprovalLoop's control plane. Framework agents formulate proposals and reasoning, but hold **zero direct execution authority**. Every proposal emitted by the framework must pass through:
+1. **Zero-Trust Identity Gate:** Cryptographic HMAC / OIDC token verification.
+2. **Google Cloud Model Armor:** Pre-LLM prompt inspection and post-LLM output verification.
+3. **Deterministic Policy Engine:** Hard monetary and rule-based policy enforcement (`ALLOW`, `REQUIRE_HUMAN_APPROVAL`, or `DENY`).
+
+Even if a model response attempts prompt injection or recommends an unauthorized monetary action, the deterministic policy layer retains 100% authority and blocks the action.
+
+### Hackathon Compliance Mapping
+
+| Requirement | Implementation | Location | Purpose |
+| :--- | :--- | :--- | :--- |
+| **At least one Google Agent Framework** | **Google GenAI SDK (`google-genai`)** | [`backend/approval_loop/agent/fleet.py`](file:///d:/hackathon/backend/approval_loop/agent/fleet.py)<br>[`backend/approval_loop/agent/drafter.py`](file:///d:/hackathon/backend/approval_loop/agent/drafter.py) | Autonomous action proposal formulation, risk assessment, multi-agent fleet delegation, and language drafting |
 
 ---
 
@@ -144,7 +147,7 @@ Persistent in **PostgreSQL**, the Agent Registry defines the identity, capabilit
 
 ---
 
-## 6. Model Armor-Inspired Safety Guardrail
+## 6. Model Armor-Inspired Deterministic Safety Guardrail
 
 The `ModelSafetyGuardrail` operates before and after LLM inference as a deterministic defense layer:
 - **Prompt Injection Defense:** Intercepts instruction overrides (`ignore prior rules`, `DAN mode`, `developer mode`, `system override`).
@@ -191,7 +194,7 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 3. Agent wakes autonomously and reads persistent Memory Bank context.
 4. Gemini analyzes the situation and drafts a structured escalation proposal.
 5. Agent Gateway verifies identity (HMAC/OIDC).
-6. Safety layer checks input/output (Model Armor).
+6. Safety layer checks input/output (Deterministic Model Safety Guardrail).
 7. Policy evaluates risk: refund amount ₹20,000 ($200) falls in the medium-risk tier (`REQUIRE_HUMAN_APPROVAL`).
 8. Workflow pauses durably in Memory Bank.
 9. Human Approval Queue displays the pending decision.
@@ -203,19 +206,21 @@ Policy decisions are 100% deterministic, immutable, and reproducible:
 ## 11. Implemented vs Roadmap
 
 ### IMPLEMENTED & VERIFIED
-- [x] Autonomous Agent wake-up & Gemini 3.5 reasoning
+- [x] Autonomous Agent wake-up & Gemini 3.7 reasoning
 - [x] Gemini structured proposal generation via Pydantic
 - [x] Agent Registry with status, capabilities & allowed actions
 - [x] Zero-Trust Identity Provider (HMAC-SHA256 + GCP OIDC + Replay Protection)
-- [x] Model Armor-inspired deterministic safety guardrail
+- [x] Custom Deterministic Model-Safety Guardrail (prompt defense & secret leakage filter)
 - [x] Deterministic Policy Engine (`finance-v3`, `support-v1`, `sales-v1`)
 - [x] Human-in-the-Loop Approval Queue & durable workflow pause/resume
-- [~] Async runtime with task leasing & retry backoff (implemented and tested; not yet wired to an API route)
+- [x] Durable Async Runtime with task leasing & crash recovery (PostgreSQL `FOR UPDATE SKIP LOCKED`)
+- [x] Distributed Replay Protection with database-backed request ID deduplication
 - [x] Persistent Memory Bank (PostgreSQL & in-memory). Approval claims commit by compare-and-set (repository lock in memory, conditional `UPDATE` in PostgreSQL)
-- [x] OpenTelemetry correlated distributed tracing & audit ledger
+- [x] OpenTelemetry correlated distributed tracing & Observability ("Why did ApprovalLoop act?")
+- [x] Real Notification Providers (Slack Webhook & SMTP Email adapters)
 - [x] 3-Tier Demo Scenarios (Case A ALLOW, Case B HUMAN APPROVAL, Case C DENY)
 - [x] Google Cloud Run & Cloud Scheduler deployment automation
-- [x] Backend test suite: 165 tests, all passing (`cd backend && PYTHONPATH=. python -m pytest tests`).
+- [x] Backend test suite: 210 tests, all passing (`cd backend && PYTHONPATH=. python -m pytest tests`).
 
 ### OPTIONAL / FUTURE ROADMAP
 - [ ] Direct Google Cloud Pub/Sub integration for sub-second event streaming
@@ -250,7 +255,7 @@ Create a `.env` file or export:
 APP_ENV=demo
 GOOGLE_CLOUD_PROJECT=approval-loop-hackathon
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.5-flash
+GEMINI_MODEL=gemini-3.7-flash
 SCHEDULER_API_KEY=dev-scheduler-secret-key
 AGENT_IDENTITY_SECRET=fleet-identity-master-secret-key-2026
 ALLOW_INSECURE_DEMO_AUTH=false
@@ -263,7 +268,7 @@ To run the API with PostgreSQL in Docker instead: `docker compose up --build` (h
 
 ### Step 3: Run Tests
 ```bash
-# Run full pytest suite (172 tests). PostgreSQL tests use TEST_DATABASE_URL if set,
+# Run full pytest suite (210 tests). PostgreSQL tests use TEST_DATABASE_URL if set,
 # otherwise an embedded server from the `pgserver` dev dependency.
 cd backend
 PYTHONPATH=. python -m pytest tests -q

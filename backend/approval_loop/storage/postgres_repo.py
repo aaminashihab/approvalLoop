@@ -347,3 +347,44 @@ class PostgresRepository(BaseRepository):
                 rows = conn.execute("SELECT data FROM async_tasks ORDER BY created_at DESC").fetchall()
         model = _task_model()
         return [model(**r["data"]) for r in rows]
+
+    def claim_async_task_transaction(self, worker_id: str = "worker-1", lease_duration_seconds: int = 60) -> Any | None:
+        from approval_loop.runtime.async_runtime import AsyncTaskState
+        now = utc_now()
+        with self.pool.connection() as conn, conn.transaction():
+            # SKIP LOCKED: concurrent workers each take a different task instead of waiting on the same row.
+            row = conn.execute(
+                """SELECT data FROM async_tasks
+                   WHERE status IN (%s, %s)
+                     AND (data->>'next_attempt_at' IS NULL OR (data->>'next_attempt_at')::timestamptz <= %s)
+                   ORDER BY created_at
+                   LIMIT 1
+                   FOR UPDATE SKIP LOCKED""",
+                (AsyncTaskState.QUEUED, AsyncTaskState.RETRY_PENDING, now),
+            ).fetchone()
+            if not row:
+                return None
+            task = _task_model()(**row["data"])
+            task.status = AsyncTaskState.LEASED
+            task.claimed_at = now
+            task.worker_id = worker_id
+            task.lease_expires_at = now + timedelta(seconds=lease_duration_seconds)
+            task.attempt_count += 1
+            conn.execute("UPDATE async_tasks SET status = %s, data = %s WHERE task_id = %s",
+                         (task.status, _jsonb(task), task.task_id))
+            return task
+
+    # ------------------------------------------------------------------ replay protection
+    def check_and_record_request_id(self, request_id: str, ttl_seconds: int = 300) -> bool:
+        now = utc_now()
+        with self.pool.connection() as conn, conn.transaction():
+            # One atomic statement: insert a new id, or reclaim one whose window has expired.
+            row = conn.execute(
+                """INSERT INTO seen_request_ids (request_id, expires_at) VALUES (%s, %s)
+                   ON CONFLICT (request_id) DO UPDATE SET expires_at = EXCLUDED.expires_at
+                   WHERE seen_request_ids.expires_at <= %s
+                   RETURNING request_id""",
+                (request_id, now + timedelta(seconds=ttl_seconds), now),
+            ).fetchone()
+            conn.execute("DELETE FROM seen_request_ids WHERE expires_at <= %s", (now - timedelta(hours=1),))
+            return row is not None

@@ -51,3 +51,10 @@ CREATE TABLE IF NOT EXISTS async_tasks (
     data            JSONB NOT NULL
 );
 CREATE INDEX IF NOT EXISTS async_tasks_status_idx ON async_tasks (status, created_at DESC);
+
+-- Replay protection shared by every API instance: a request_id is accepted once until it expires.
+CREATE TABLE IF NOT EXISTS seen_request_ids (
+    request_id  TEXT PRIMARY KEY,
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS seen_request_ids_expiry_idx ON seen_request_ids (expires_at);

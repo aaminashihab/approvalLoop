@@ -1,6 +1,10 @@
 import os
 from enum import Enum
-from pydantic import BaseModel, Field
+from typing import Any
+from pydantic import BaseModel, Field, ConfigDict
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class AppEnvironment(str, Enum):
     TEST = "test"
@@ -31,6 +35,8 @@ ENV_THRESHOLDS: dict[AppEnvironment, ThresholdConfig] = {
 }
 
 class Settings(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     app_env: AppEnvironment = Field(
         default_factory=lambda: AppEnvironment(os.getenv("APP_ENV", "demo").lower())
     )
@@ -47,19 +53,20 @@ class Settings(BaseModel):
         default_factory=lambda: os.getenv("APP_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080,http://127.0.0.1:8080,http://127.0.0.1:5173")
     )
     google_cloud_project: str = Field(
-        default_factory=lambda: os.getenv("GOOGLE_CLOUD_PROJECT", "approval-loop-hackathon")
+        default_factory=lambda: os.getenv("GOOGLE_CLOUD_PROJECT", "model-factor-506215-v8")
     )
     gemini_api_key: str | None = Field(
         default_factory=lambda: os.getenv("GEMINI_API_KEY")
     )
     gemini_model: str = Field(
-        default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+        default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
     )
     # Expected `aud` claim for Google OIDC bearer tokens (operators/scheduler/agents).
     # When unset, OIDC authentication is DISABLED (fail closed): a Google-signed token
     # with an arbitrary audience must never authenticate as an operator or agent.
+    # OIDC_EXPECTED_AUDIENCE is accepted as an older name for the same setting.
     oidc_audience: str | None = Field(
-        default_factory=lambda: os.getenv("OIDC_AUDIENCE") or None
+        default_factory=lambda: os.getenv("OIDC_AUDIENCE") or os.getenv("OIDC_EXPECTED_AUDIENCE") or None
     )
     # Optional binding of agent_id -> service-account email, e.g.
     # "finance-agent=fin@proj.iam.gserviceaccount.com,support-agent=sup@proj.iam.gserviceaccount.com"
@@ -80,6 +87,18 @@ class Settings(BaseModel):
     )
     database_schema: str = Field(
         default_factory=lambda: os.getenv("DATABASE_SCHEMA", "public")
+    )
+    model_armor_enabled: bool = Field(
+        default_factory=lambda: os.getenv("MODEL_ARMOR_ENABLED", "true").lower() in ("true", "1", "yes")
+    )
+    model_armor_fail_closed: bool = Field(
+        default_factory=lambda: os.getenv("MODEL_ARMOR_FAIL_CLOSED", "true").lower() in ("true", "1", "yes")
+    )
+    model_armor_location: str = Field(
+        default_factory=lambda: os.getenv("MODEL_ARMOR_LOCATION", os.getenv("REGION", "us-central1"))
+    )
+    model_armor_template_id: str = Field(
+        default_factory=lambda: os.getenv("MODEL_ARMOR_TEMPLATE_ID", "default-guardrail")
     )
 
     @property
@@ -107,6 +126,9 @@ class Settings(BaseModel):
     @property
     def allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins_raw.split(",") if o.strip()]
+
+    def model_post_init(self, __context: Any) -> None:
+        self.validate_production_safety()
 
     def validate_production_safety(self):
         """Hard production-hardening validation guards."""

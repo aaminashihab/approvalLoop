@@ -115,3 +115,30 @@ class BaseRepository(ABC):
     def list_async_tasks(self, status: Optional[str] = None) -> list[Any]:
         pass
 
+    @abstractmethod
+    def claim_async_task_transaction(
+        self,
+        worker_id: str = "worker-1",
+        lease_duration_seconds: int = 60
+    ) -> Any | None:
+        """
+        Atomically leases the next eligible QUEUED or RETRY_PENDING task.
+        Guarantees that two concurrent workers will never claim the same task.
+        """
+        pass
+
+    @abstractmethod
+    def check_and_record_request_id(
+        self,
+        request_id: str,
+        ttl_seconds: int = 300
+    ) -> bool:
+        """
+        Distributed Replay Protection:
+        Atomically checks if request_id has already been processed across instances.
+        Returns True if request_id is new and successfully recorded, False if already seen (replay attack).
+        Abstract on purpose: a default of True would silently disable replay protection.
+        """
+        pass
+
+

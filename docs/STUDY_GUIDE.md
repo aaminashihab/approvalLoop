@@ -96,7 +96,7 @@ Run these from `D:\approvalLOOP\approvalLoop-main`.
    ```bash
    cd backend && python -m venv .venv && source .venv/Scripts/activate && pip install -r requirements-dev.txt
    ```
-2. **Run the tests.** You should see 172 passed (12 run against a real embedded PostgreSQL):
+2. **Run the tests.** You should see 210 passed (12 run against a real embedded PostgreSQL):
    ```bash
    PYTHONPATH=. python -m pytest tests -q
    ```

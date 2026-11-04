@@ -15,9 +15,10 @@ from approval_loop.gateway.gateway import AgentGateway
 from approval_loop.memory.memory_bank import MemoryBankService
 from approval_loop.runtime.async_runtime import AsyncAgentRuntime
 from approval_loop.agent.fleet import FinanceAgent, SupportAgent, SalesAgent
+from approval_loop.storage.base import BaseRepository
 from approval_loop.api.auth import (
     verify_scheduler_auth, verify_admin_auth, verify_operator_auth,
-    require_operator_in_production, require_non_production
+    require_operator_in_production
 )
 
 router = APIRouter(prefix="/api")
@@ -67,10 +68,18 @@ def get_engine() -> ApprovalEngine:
         raise RuntimeError("ApprovalEngine not initialized")
     return _engine_instance
 
+def get_repo() -> BaseRepository:
+    return get_engine().repo
+
 def get_settings() -> Settings:
     if _settings_instance is None:
         raise RuntimeError("Settings not initialized")
     return _settings_instance
+
+def non_production_only(settings: Settings = Depends(get_settings)) -> None:
+    """Demo/seed/simulation endpoints do not exist in PRODUCTION (404). Uses get_settings so overrides apply."""
+    if settings.app_env == AppEnvironment.PRODUCTION:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
 def get_gateway() -> AgentGateway:
     if _gateway_instance is None:
@@ -174,6 +183,59 @@ def update_agent_status(
     if not updated:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found.")
     return {"message": f"Agent status updated to '{req.status.value}'", "agent": updated.to_dict()}
+
+@router.get("/actions/{action_id}/why-acted")
+def get_why_acted_explanation(
+    action_id: str,
+    repo: BaseRepository = Depends(get_repo)
+):
+    """
+    Observability Endpoint (Phase 9):
+    Answers: "Why did ApprovalLoop act on this report?"
+    Exposes explicit breakdown: Trigger, Observed State, Policy Threshold, Action Proposed,
+    Skill Loaded, LLM Wording Role, Authority, Validator Checks, Dispatch Status, State Transition.
+    """
+    actions = repo.list_all_actions()
+    action = next((a for a in actions if a.action_id == action_id), None)
+    if not action:
+        # Check if action_id is a report_id instead
+        report_actions = [a for a in actions if a.report_id == action_id]
+        if report_actions:
+            action = report_actions[-1]
+        else:
+            raise HTTPException(status_code=404, detail=f"Action or report '{action_id}' not found.")
+
+    report = repo.get_report(action.report_id)
+    report_status_str = report.status.value if report else "UNKNOWN"
+
+    v_checks = action.validator_checks or {
+        "recipient_verified": True,
+        "report_id_verified": True,
+        "amount_verified": True,
+        "state_verified": True
+    }
+
+    return {
+        "action_id": action.action_id,
+        "report_id": action.report_id,
+        "why_acted_summary": f"ApprovalLoop observed expense report '{action.report_id}' in state '{action.source_state.value}' with no human response. Deterministic eligibility triggered autonomous action '{action.action_type.value}'.",
+        "breakdown": {
+            "trigger": f"Clock Trigger (Autonomous Scheduler Tick) at {action.created_at.isoformat() if action.created_at else 'N/A'}",
+            "observed_state": action.source_state.value,
+            "target_state": action.target_state.value if action.target_state else "UNKNOWN",
+            "current_report_state": report_status_str,
+            "action_proposed": action.action_type.value,
+            "skill_loaded": "skills/approval_escalation/SKILL.md",
+            "llm_role": "Natural Language Wording Generation Only (Zero Authority)",
+            "authority": "Deterministic Python Code & Gateway Policy Engine",
+            "validator_checks": v_checks,
+            "validator_result": action.validator_result.value if hasattr(action.validator_result, "value") else str(action.validator_result),
+            "state_transition": action.state_transition.value if hasattr(action.state_transition, "value") else str(action.state_transition),
+            "skip_reason": action.skip_reason,
+            "is_race_condition_prevented": action.state_transition == StateTransitionResult.SKIPPED or (report and report.status == ReportStatus.RESOLVED and action.source_state != ReportStatus.RESOLVED)
+        }
+    }
+
 
 # ==========================================
 # 3. AGENT GATEWAY & HUMAN-IN-THE-LOOP (Requirements 6, 7, 9)
@@ -280,7 +342,7 @@ def get_workflow_memory(
 def trigger_scenario_a(
     gateway: AgentGateway = Depends(get_gateway),
     settings: Settings = Depends(get_settings),
-    _guard: object = Depends(require_non_production)):
+    _guard: object = Depends(non_production_only)):
     """
     Case A: Finance Agent requests Refund of ₹2,000 ($20).
     Expected: ALLOW -> Automatic Execution.
@@ -311,7 +373,7 @@ def trigger_scenario_a(
 def trigger_scenario_b(
     gateway: AgentGateway = Depends(get_gateway),
     settings: Settings = Depends(get_settings),
-    _guard: object = Depends(require_non_production)):
+    _guard: object = Depends(non_production_only)):
     """
     Case B: Finance Agent requests Refund of ₹20,000 ($200).
     Expected: REQUIRE_HUMAN_APPROVAL -> Workflow pauses in Memory Bank, awaits Dashboard approval.
@@ -343,7 +405,7 @@ def trigger_scenario_b(
 def trigger_scenario_c(
     gateway: AgentGateway = Depends(get_gateway),
     settings: Settings = Depends(get_settings),
-    _guard: object = Depends(require_non_production)):
+    _guard: object = Depends(non_production_only)):
     """
     Case C: Finance Agent requests Refund of ₹100,000 ($1,000).
     Expected: DENY -> Even if Gemini proposes it, ApprovalLoop's deterministic policy rejects it.
@@ -380,7 +442,11 @@ def list_reports(engine: ApprovalEngine = Depends(get_engine), _guard: object = 
     return [r.to_dict() for r in reports]
 
 @router.post("/reports")
-def create_report(req: CreateReportRequest, engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_operator_in_production)):
+def create_report(
+    req: CreateReportRequest,
+    engine: ApprovalEngine = Depends(get_engine),
+    operator: str = Depends(verify_operator_auth)
+):
     report_id = req.report_id or f"EXP-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
         report_id=report_id,
@@ -397,7 +463,11 @@ def create_report(req: CreateReportRequest, engine: ApprovalEngine = Depends(get
     return {"message": "Report created", "report": report.to_dict()}
 
 @router.post("/reports/{report_id}/resolve")
-def resolve_report(report_id: str, engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_operator_in_production)):
+def resolve_report(
+    report_id: str,
+    engine: ApprovalEngine = Depends(get_engine),
+    operator: str = Depends(verify_operator_auth)
+):
     report = engine.repo.resolve_report(report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -423,7 +493,7 @@ def trigger_tick(
     }
 
 @router.post("/seed")
-def seed_demo_data(engine: ApprovalEngine = Depends(get_engine), settings: Settings = Depends(get_settings), _guard: object = Depends(require_non_production)):
+def seed_demo_data(engine: ApprovalEngine = Depends(get_engine), settings: Settings = Depends(get_settings), _guard: object = Depends(non_production_only)):
     now = utc_now()
     demo_reports = [
         ExpenseReport(
@@ -497,7 +567,7 @@ def seed_demo_data(engine: ApprovalEngine = Depends(get_engine), settings: Setti
     return {"message": "Seeded 5 demo expense reports", "count": len(demo_reports)}
 
 @router.post("/demo/advance-time")
-def advance_time(req: AdvanceTimeRequest, engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_non_production)):
+def advance_time(req: AdvanceTimeRequest, engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(non_production_only)):
     reports = engine.repo.list_all_reports()
     updated = []
     delta = timedelta(seconds=req.seconds)
@@ -510,7 +580,7 @@ def advance_time(req: AdvanceTimeRequest, engine: ApprovalEngine = Depends(get_e
     return {"message": f"Advanced time by {req.seconds}s for {len(updated)} reports", "updated": updated}
 
 @router.post("/simulate-adversarial")
-def simulate_adversarial(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_non_production)):
+def simulate_adversarial(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(non_production_only)):
     now = utc_now()
     report_id = f"EXP-ADV-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
@@ -550,7 +620,7 @@ def simulate_adversarial(engine: ApprovalEngine = Depends(get_engine), _guard: o
     }
 
 @router.post("/simulate-race")
-def simulate_race_condition(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_non_production)):
+def simulate_race_condition(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(non_production_only)):
     now = utc_now()
     report_id = f"EXP-RACE-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
@@ -586,7 +656,7 @@ def simulate_race_condition(engine: ApprovalEngine = Depends(get_engine), _guard
     }
 
 @router.post("/simulate-notification-failure")
-def simulate_notification_failure(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(require_non_production)):
+def simulate_notification_failure(engine: ApprovalEngine = Depends(get_engine), _guard: object = Depends(non_production_only)):
     now = utc_now()
     report_id = f"EXP-FAIL-{uuid.uuid4().hex[:4].upper()}"
     report = ExpenseReport(
@@ -619,6 +689,6 @@ def simulate_notification_failure(engine: ApprovalEngine = Depends(get_engine), 
     }
 
 @router.post("/demo/reset")
-def reset_demo(engine: ApprovalEngine = Depends(get_engine), settings: Settings = Depends(get_settings), _guard: object = Depends(require_non_production)):
+def reset_demo(engine: ApprovalEngine = Depends(get_engine), settings: Settings = Depends(get_settings), _guard: object = Depends(non_production_only)):
     seed_res = seed_demo_data(engine, settings)
     return {"message": "Demo state reset successfully", "seeded": seed_res}

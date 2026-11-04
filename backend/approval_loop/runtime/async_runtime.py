@@ -34,6 +34,7 @@ class AsyncTaskRecord(BaseModel):
     max_attempts: int = 3
     lease_expires_at: Optional[datetime] = None
     claimed_at: Optional[datetime] = None
+    worker_id: Optional[str] = None
     last_error: Optional[str] = None
     next_attempt_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
@@ -53,6 +54,7 @@ class AsyncTaskRecord(BaseModel):
             "max_attempts": self.max_attempts,
             "lease_expires_at": self.lease_expires_at.isoformat() if self.lease_expires_at else None,
             "claimed_at": self.claimed_at.isoformat() if self.claimed_at else None,
+            "worker_id": self.worker_id,
             "last_error": self.last_error,
             "next_attempt_at": self.next_attempt_at.isoformat() if self.next_attempt_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
@@ -176,7 +178,20 @@ class AsyncAgentRuntime:
     def claim_next_task(self, worker_id: str = "worker-1") -> Optional[AsyncTaskRecord]:
         """
         Atomically leases the next eligible queued or retry-pending task.
+        Guarantees two workers cannot claim the same task concurrently.
         """
+        if self.repo and hasattr(self.repo, "claim_async_task_transaction"):
+            claimed = self.repo.claim_async_task_transaction(
+                worker_id=worker_id,
+                lease_duration_seconds=self.lease_duration_seconds
+            )
+            if claimed:
+                rec = claimed if isinstance(claimed, AsyncTaskRecord) else AsyncTaskRecord(**claimed)
+                self._tasks[rec.task_id] = rec
+                self._idempotency_index[rec.idempotency_key] = rec.task_id
+                return rec
+            return None
+
         now = utc_now()
         tasks = self._list_tasks()
         for task in tasks:
@@ -185,6 +200,7 @@ class AsyncAgentRuntime:
                     continue
                 task.status = AsyncTaskState.LEASED
                 task.claimed_at = now
+                task.worker_id = worker_id
                 task.lease_expires_at = now + timedelta(seconds=self.lease_duration_seconds)
                 task.attempt_count += 1
                 self._save_task(task)

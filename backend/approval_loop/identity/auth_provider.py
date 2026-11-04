@@ -72,7 +72,12 @@ class AgentIdentityProvider:
 
     def _consume_request_id(self, request_id: str) -> bool:
         """Atomically records a request_id. Returns False if it was already consumed.
-        Entries expire after the token lifetime so the cache stays bounded."""
+        Uses the registry's shared repository when there is one, so replays are caught across
+        instances; otherwise a per-process cache. Entries expire after twice the token lifetime."""
+        ttl = max(self.token_max_age_seconds, 60) * 2
+        repo = getattr(self.registry, "repo", None)
+        if repo is not None:
+            return repo.check_and_record_request_id(request_id, ttl_seconds=ttl)
         now = time.time()
         with self._replay_lock:
             for rid in [r for r, exp in self._seen_request_ids.items() if exp <= now]:
@@ -204,15 +209,22 @@ class AgentIdentityProvider:
 
         return True, f"Agent '{agent.agent_id}' (v{agent.version}) authenticated successfully via {auth_context.verification_method}.", claims
 
-    def _verify_gcp_oidc_token(self, token: str, expected_agent_id: str) -> Optional[dict]:
+    def _verify_gcp_oidc_token(
+        self,
+        token: str,
+        expected_agent_id: str,
+        expected_audience: Optional[str] = None
+    ) -> Optional[dict]:
         """
         Validates Google Cloud service-account OIDC tokens. Fails closed unless ALL hold:
         - an expected audience is configured,
-        - signature/issuer/expiry/audience verify via google.oauth2.id_token,
+        - signature/expiry/audience verify via google.oauth2.id_token,
+        - the issuer is Google and the token carries a subject or email,
         - the agent has an explicit service-account binding and the token's verified
           email matches it (otherwise any service account could impersonate any agent).
         """
-        if not self.oidc_audience:
+        audience = expected_audience or self.oidc_audience
+        if not audience:
             logger.warning("Agent OIDC token rejected: no OIDC audience configured.")
             return None
         bound_email = self.oidc_agent_bindings.get(expected_agent_id)
@@ -223,7 +235,14 @@ class AgentIdentityProvider:
             from google.oauth2 import id_token
             from google.auth.transport import requests
             req = requests.Request()
-            id_info = id_token.verify_oauth2_token(token, req, audience=self.oidc_audience)
+            id_info = id_token.verify_oauth2_token(token, req, audience=audience)
+            iss = id_info.get("iss", "")
+            if iss not in ("https://accounts.google.com", "accounts.google.com"):
+                logger.warning("GCP OIDC token verification failed: untrusted issuer '%s'", iss)
+                return None
+            if not (id_info.get("sub") or id_info.get("email")):
+                logger.warning("GCP OIDC token verification failed: missing subject/email claim")
+                return None
         except Exception as e:
             logger.warning("GCP OIDC token verification failed: %s", type(e).__name__)
             return None

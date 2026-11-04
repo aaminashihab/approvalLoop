@@ -12,7 +12,7 @@ class AgentBillOfMaterials(BaseModel):
     version: str = "2.1.0"
     track: str = "Taskmaster"
     environment: str = "demo"
-    model: str = "gemini-3.5-flash"
+    model: str = "gemini-3.7-flash"
     framework: str = "Google GenAI SDK (google-genai)"
     runtime: str = "Google Cloud Run"
     project_id: str = "approval-loop-hackathon"
@@ -22,7 +22,7 @@ class AgentBillOfMaterials(BaseModel):
     tools: list[str] = Field(default_factory=lambda: ["notification_worker", "postgres_transactional_outbox", "payment_gateway", "erp_ledger_sync"])
     safety_mechanisms: list[str] = Field(default_factory=lambda: [
         "zero_trust_cryptographic_agent_identity",
-        "model_armor_prompt_defense_guardrail",
+        "deterministic_model_safety_guardrail",
         "approval_loop_agent_gateway",
         "deterministic_state_machine",
         "4_point_safety_validator",

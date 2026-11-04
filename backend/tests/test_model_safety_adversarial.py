@@ -19,7 +19,7 @@ def test_prompt_injection_detection(guardrail):
         res = guardrail.inspect_prompt(prompt)
         assert not res.passed, f"Failed to catch injection: {prompt}"
         assert len(res.detected_threats) > 0
-        assert "Model Armor Intercept" in res.reason
+        assert "Deterministic Model Safety Guardrail Intercept" in res.reason
 
 def test_script_and_code_injection(guardrail):
     code_injections = [

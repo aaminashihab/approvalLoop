@@ -8,7 +8,7 @@ from approval_loop.storage.base import BaseRepository
 from approval_loop.domain.models import (
     ExpenseReport, ActionRecord, ActionType, ReportStatus,
     ValidatorResultEnum, ActionStatus, NotificationEnvelope,
-    AutonomyMetrics, utc_now
+    StateTransitionResult, AutonomyMetrics, utc_now
 )
 from approval_loop.domain.eligibility import EligibilityEvaluator
 from approval_loop.domain.registry import ApproverRegistry
@@ -17,6 +17,7 @@ from approval_loop.validator.validator import DeterministicValidator
 from approval_loop.policy.policy_engine import PolicyEngine, PolicyDecisionEnum
 from approval_loop.observability.tracer import OpenTelemetryTracer
 from approval_loop.skills.skill_registry import SkillRegistry
+from approval_loop.guardrails.safety_guardrail import ModelSafetyGuardrail
 from approval_loop.worker.worker import BaseNotificationProvider, MockNotificationWorker
 
 logger = logging.getLogger("approval_loop.engine")
@@ -36,7 +37,8 @@ class ApprovalEngine:
         worker: BaseNotificationProvider,
         policy_engine: Optional[PolicyEngine] = None,
         tracer: Optional[OpenTelemetryTracer] = None,
-        skill_registry: Optional[SkillRegistry] = None
+        skill_registry: Optional[SkillRegistry] = None,
+        guardrail: Optional[ModelSafetyGuardrail] = None
     ):
         self.repo = repo
         self.settings = settings
@@ -47,6 +49,7 @@ class ApprovalEngine:
         self.policy_engine = policy_engine or PolicyEngine(settings)
         self.tracer = tracer or OpenTelemetryTracer.get_tracer()
         self.skill_registry = skill_registry or SkillRegistry()
+        self.guardrail = guardrail or ModelSafetyGuardrail()
 
         # Autonomy Metrics Ledger
         self.total_observed = 0
@@ -166,6 +169,23 @@ class ApprovalEngine:
                         )
                         active_action.message = wording
 
+                    # 4.5. DETERMINISTIC MODEL SAFETY GUARDRAIL — Inspect LLM wording output
+                    with self.tracer.start_span("model_safety.inspect", {"report_id": report.report_id}):
+                        safety_res = self.guardrail.inspect_model_output(wording)
+                        if not safety_res.passed:
+                            logger.warning(
+                                "Deterministic Model Safety Guardrail blocked wording for report %s: %s",
+                                report.report_id,
+                                safety_res.reason
+                            )
+                            self.total_blocked += 1
+                            active_action.status = ActionStatus.BLOCKED
+                            active_action.validator_result = ValidatorResultEnum.BLOCKED
+                            active_action.validator_reason = f"Model Safety Guardrail Intercept: {safety_res.reason}"
+                            self.repo.save_action(active_action)
+                            processed_actions.append(active_action)
+                            continue
+
                     # 5. ASSEMBLE AUTHORITATIVE ENVELOPE (Code owns business truth)
                     if injected_adversarial_envelope:
                         envelope = injected_adversarial_envelope
@@ -210,6 +230,25 @@ class ApprovalEngine:
                             active_action.validator_result = ValidatorResultEnum.BLOCKED
                             active_action.validator_reason = p_reason
                             self.repo.save_action(active_action)
+                            processed_actions.append(active_action)
+                            continue
+
+                    # 7.5. FINAL PRE-DISPATCH STATE CHECK: Prevent stale notifications if state changed in-flight
+                    with self.tracer.start_span("pre_dispatch_check", {"report_id": report.report_id}):
+                        fresh_report = self.repo.get_report(report.report_id)
+                        if not fresh_report or fresh_report.status != active_action.source_state:
+                            logger.info(
+                                "Pre-dispatch check: report %s status changed (expected %s, found %s). Skipping notification dispatch.",
+                                report.report_id,
+                                active_action.source_state.value,
+                                fresh_report.status.value if fresh_report else "DELETED"
+                            )
+                            active_action.status = ActionStatus.COMPLETED
+                            active_action.state_transition = StateTransitionResult.SKIPPED
+                            active_action.skip_reason = f"report state changed before transition commit (expected={active_action.source_state.value}, found={fresh_report.status.value if fresh_report else 'DELETED'})"
+                            active_action.completed_at = utc_now()
+                            self.repo.save_action(active_action)
+                            self.total_unsafe_transitions_prevented += 1
                             processed_actions.append(active_action)
                             continue
 

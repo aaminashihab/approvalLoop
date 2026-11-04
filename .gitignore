@@ -1,11 +1,3 @@
-# Ignore all markdown files except README.md
-**/*.md
-*.md
-!README.md
-# Skills are runtime inputs (loaded by approval_loop/skills/skill_registry.py), not docs.
-!skills/**/*.md
-!docs/STUDY_GUIDE.md
-
 # Archives & Temp Files
 *.zip
 *.tar.gz
