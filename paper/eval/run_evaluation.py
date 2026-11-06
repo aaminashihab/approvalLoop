@@ -2,6 +2,7 @@
 Reproducible evaluation for the ApprovalLoop paper.
 
 Run from the repository root:
+    pip install -r paper/requirements.txt   # adds matplotlib
     PYTHONPATH=backend python paper/eval/run_evaluation.py
 
 Writes paper/eval/results.json and figures to paper/figures/. Every number in the paper comes

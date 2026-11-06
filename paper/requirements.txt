@@ -1,0 +1,4 @@
+# Evaluation harness (paper/eval/*.py): backend dependencies plus plotting.
+#   pip install -r paper/requirements.txt
+-r ../backend/requirements.txt
+matplotlib>=3.7
