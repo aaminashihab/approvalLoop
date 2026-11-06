@@ -10,6 +10,8 @@ SERVICE_NAME="approval-loop"
 GEMINI_MODEL=${GEMINI_MODEL:-"gemini-3.7-flash"}
 APP_ENV=${APP_ENV:-"demo"} # "demo" | "production"
 SCHEDULER_API_KEY=${SCHEDULER_API_KEY:-"dev-scheduler-secret-key"}
+# Signs agent tokens. Production refuses the built-in development value, so it must be set there.
+AGENT_IDENTITY_SECRET=${AGENT_IDENTITY_SECRET:-""}
 USE_SECRET_MANAGER=${USE_SECRET_MANAGER:-"false"}
 AUTH_MODE=${AUTH_MODE:-"api-key"} # "api-key" (for web dashboard access) | "iam-oidc" (hardened private backend)
 # PostgreSQL on Cloud SQL. CLOUD_SQL_INSTANCE is "project:region:instance". Over the Cloud Run socket, DATABASE_URL is e.g.
@@ -40,6 +42,16 @@ if [ "$APP_ENV" = "production" ] && [ -z "$CLOUD_SQL_INSTANCE" ]; then
     echo "ERROR: production needs PostgreSQL. Set CLOUD_SQL_INSTANCE, plus DATABASE_URL or the database-url secret."
     exit 1
 fi
+if [ "$APP_ENV" = "production" ] && [ "$USE_SECRET_MANAGER" != "true" ]; then
+    if [ "$SCHEDULER_API_KEY" = "dev-scheduler-secret-key" ]; then
+        echo "ERROR: production refuses the development SCHEDULER_API_KEY. Export your own key."
+        exit 1
+    fi
+    if [ -z "$AGENT_IDENTITY_SECRET" ]; then
+        echo "ERROR: production needs AGENT_IDENTITY_SECRET (or USE_SECRET_MANAGER=true with an agent-identity-secret secret)."
+        exit 1
+    fi
+fi
 CLOUD_SQL_FLAG=""
 if [ -n "$CLOUD_SQL_INSTANCE" ]; then
     CLOUD_SQL_FLAG="--add-cloudsql-instances $CLOUD_SQL_INSTANCE"
@@ -60,7 +72,7 @@ if [ "$USE_SECRET_MANAGER" = "true" ]; then
         --project $PROJECT_ID \
         $ALLOW_UNAUTH $CLOUD_SQL_FLAG \
         --set-env-vars APP_ENV=$APP_ENV,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GEMINI_MODEL=$GEMINI_MODEL \
-        --set-secrets GEMINI_API_KEY=gemini-api-key:latest,SCHEDULER_API_KEY=scheduler-api-key:latest,DATABASE_URL=database-url:latest
+        --set-secrets GEMINI_API_KEY=gemini-api-key:latest,SCHEDULER_API_KEY=scheduler-api-key:latest,AGENT_IDENTITY_SECRET=agent-identity-secret:latest,DATABASE_URL=database-url:latest
 else
     echo "Configuring Cloud Run with environment variables..."
     ENV_VARS="APP_ENV=$APP_ENV,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GEMINI_MODEL=$GEMINI_MODEL,SCHEDULER_API_KEY=$SCHEDULER_API_KEY"
@@ -69,6 +81,9 @@ else
     fi
     if [ -n "$DATABASE_URL" ]; then
         ENV_VARS="$ENV_VARS,DATABASE_URL=$DATABASE_URL"
+    fi
+    if [ -n "$AGENT_IDENTITY_SECRET" ]; then
+        ENV_VARS="$ENV_VARS,AGENT_IDENTITY_SECRET=$AGENT_IDENTITY_SECRET"
     fi
 
     gcloud run deploy $SERVICE_NAME \
