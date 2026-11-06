@@ -5,7 +5,9 @@ from typing import Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Header, status
 from pydantic import BaseModel, Field
 
-from approval_loop.domain.models import ExpenseReport, ReportStatus, NotificationEnvelope, utc_now
+from approval_loop.domain.models import (
+    ExpenseReport, ReportStatus, NotificationEnvelope, StateTransitionResult, utc_now
+)
 from approval_loop.domain.agent_registry import AgentRegistration, AgentStatus, AgentRegistryService, RiskLevel
 from approval_loop.domain.gateway_models import AgentActionProposal, AgentAuthContext, GatewayDecision
 from approval_loop.domain.agbom import get_agbom_inventory
