@@ -263,7 +263,7 @@ PYTHONPATH=backend python evals/run_demo_scenarios.py
 
 Some of their headline lines are fixed text rather than measurements (for example "Human Prompts Required: 0").
 
-`paper/` contains an IEEE-style evaluation with a reproducible harness. Run it from the repository root:
+ Run it from the repository root:
 
 ```bash
 pip install -r paper/requirements.txt   # backend requirements plus matplotlib
