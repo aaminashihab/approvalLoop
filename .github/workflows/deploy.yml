@@ -13,9 +13,11 @@ on:
           - production
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || 'approval-loop-hackathon' }}
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION || 'us-central1' }}
   SERVICE_NAME: approval-loop
+  # The secrets context cannot be used in step `if:` conditions, so expose "is it set?" as an env value.
+  HAS_GCP_SA_KEY: ${{ secrets.GCP_SA_KEY != '' }}
 
 jobs:
   deploy-cloud-run:
@@ -26,35 +28,70 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Skip notice (no GCP credentials)
+        if: env.HAS_GCP_SA_KEY != 'true'
+        run: echo "GCP_SA_KEY is not set; nothing is deployed."
+
       - name: Authenticate to Google Cloud
-        if: "${{ secrets.GCP_SA_KEY != '' }}"
+        if: env.HAS_GCP_SA_KEY == 'true'
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
-        if: "${{ secrets.GCP_SA_KEY != '' }}"
+        if: env.HAS_GCP_SA_KEY == 'true'
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
       - name: Configure Docker for Google Artifact Registry
-        if: "${{ secrets.GCP_SA_KEY != '' }}"
+        if: env.HAS_GCP_SA_KEY == 'true'
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      - name: Build and Push Container Image
-        if: "${{ secrets.GCP_SA_KEY != '' }}"
+      - name: Build, push and deploy
+        if: env.HAS_GCP_SA_KEY == 'true'
+        env:
+          CLOUD_SQL_INSTANCE: ${{ secrets.CLOUD_SQL_INSTANCE }}
+          TARGET_ENV: ${{ inputs.environment }}
         run: |
-          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/${{ env.SERVICE_NAME }}:${{ github.sha }}"
-          docker build -t $IMAGE_TAG .
-          docker push $IMAGE_TAG
-
-          # PostgreSQL on Cloud SQL: attach the instance and read DATABASE_URL from Secret Manager ("database-url").
-          # Production refuses to start without a database.
-          CLOUD_SQL_FLAGS=""
-          if [ -n "${{ secrets.CLOUD_SQL_INSTANCE }}" ]; then
-            CLOUD_SQL_FLAGS="--add-cloudsql-instances ${{ secrets.CLOUD_SQL_INSTANCE }} --set-secrets DATABASE_URL=database-url:latest"
+          if [ -z "$PROJECT_ID" ]; then
+            echo "ERROR: set the GCP_PROJECT_ID repository secret."
+            exit 1
           fi
 
-          gcloud run deploy ${{ env.SERVICE_NAME }}             --image $IMAGE_TAG             --region ${{ env.REGION }}             --platform managed             --allow-unauthenticated             --set-env-vars "APP_ENV=${{ inputs.environment }},GEMINI_MODEL=gemini-3.7-flash,GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}" $CLOUD_SQL_FLAGS
+          IMAGE_TAG="$REGION-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/$SERVICE_NAME:${{ github.sha }}"
+          docker build -t "$IMAGE_TAG" .
+          docker push "$IMAGE_TAG"
+
+          # PostgreSQL on Cloud SQL: attach the instance and read DATABASE_URL from Secret Manager ("database-url").
+          CLOUD_SQL_FLAGS=""
+          SECRETS=""
+          if [ -n "$CLOUD_SQL_INSTANCE" ]; then
+            CLOUD_SQL_FLAGS="--add-cloudsql-instances $CLOUD_SQL_INSTANCE"
+            SECRETS="DATABASE_URL=database-url:latest"
+          fi
+
+          AUTH_FLAG="--allow-unauthenticated"
+          if [ "$TARGET_ENV" = "production" ]; then
+            if [ -z "$CLOUD_SQL_INSTANCE" ]; then
+              echo "ERROR: production needs PostgreSQL. Set the CLOUD_SQL_INSTANCE repository secret."
+              exit 1
+            fi
+            # Production refuses development defaults, so its keys come from Secret Manager.
+            SECRETS="$SECRETS,GEMINI_API_KEY=gemini-api-key:latest,SCHEDULER_API_KEY=scheduler-api-key:latest,AGENT_IDENTITY_SECRET=agent-identity-secret:latest"
+            AUTH_FLAG="--no-allow-unauthenticated"
+          fi
+
+          SECRETS_FLAG=""
+          if [ -n "$SECRETS" ]; then
+            SECRETS_FLAG="--set-secrets ${SECRETS#,}"
+          fi
+
+          gcloud run deploy "$SERVICE_NAME" \
+            --image "$IMAGE_TAG" \
+            --region "$REGION" \
+            --platform managed \
+            $AUTH_FLAG \
+            --set-env-vars "APP_ENV=$TARGET_ENV,GEMINI_MODEL=gemini-3.7-flash,GOOGLE_CLOUD_PROJECT=$PROJECT_ID" \
+            $CLOUD_SQL_FLAGS $SECRETS_FLAG
