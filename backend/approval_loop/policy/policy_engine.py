@@ -96,8 +96,11 @@ class PolicyEngine:
         # 2. High-Value Financial Escalation Governance
         if report.amount >= self.HIGH_VALUE_THRESHOLD:
             if action.action_type == ActionType.ESCALATE:
-                # High-value escalation must go to a senior authority or admin fallback
-                if "director" not in envelope.recipient.lower() and "admin" not in envelope.recipient.lower() and "vp" not in envelope.recipient.lower():
+                # High-value escalation must go to a senior authority or the configured admin fallback
+                # (ADMIN_FALLBACK_EMAIL), which is where escalations go when no backup approver exists.
+                recipient = envelope.recipient.lower()
+                is_admin_fallback = recipient == (self.settings.admin_fallback_email or "").lower()
+                if not is_admin_fallback and "director" not in recipient and "admin" not in recipient and "vp" not in recipient:
                     return (
                         PolicyDecisionEnum.DENY,
                         f"Policy Violation [POL-VAL-02]: High-value expense ({report.currency} {report.amount}) escalation requires Director/Admin authorization level."
