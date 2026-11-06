@@ -41,9 +41,11 @@ class TraceRecord(BaseModel):
 
 class OpenTelemetryTracer:
     """
-    OpenTelemetry-Integrated Execution Tracer:
-    Bridges autonomous lifecycle execution directly to OpenTelemetry SDK standards
-    while maintaining a high-performance in-memory ring buffer for UI observability.
+    In-memory execution tracer:
+    Keeps the most recent traces in a ring buffer for /api/traces and the console. It also opens
+    OpenTelemetry API spans, but this app configures no TracerProvider or exporter, so those spans
+    are not sent anywhere unless the host process sets one up. One "current trace" is shared by the
+    process, so traces from concurrent requests can mix.
     Spans traced:
     observe -> eligibility -> skill.load -> claim -> gemini.draft -> validation -> policy.check -> notification -> state_transition
     """

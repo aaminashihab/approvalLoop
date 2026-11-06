@@ -42,12 +42,13 @@ class AgentIdentityProvider:
     Verifies that requests originate from legitimate, registered, and active institutional agents
     with valid cryptographic tokens/signatures, enforcing least-privilege action and tool whitelists.
     
-    Production-ready features:
-    - HMAC-SHA256 agent signature verification with timestamp replay attack prevention
-    - Google Cloud IAM / Service Account token verification hook
-    - Registry capability & active status check
+    Features:
+    - HMAC-SHA256 agent token verification (expiry, optional binding to one request and proposal)
+    - Request-id replay protection
+    - Google service-account OIDC token verification (requires an audience and an agent binding)
+    - Registry active-status check
     - Version mismatch protection
-    - Whitelist enforcement for allowed_actions and allowed_tools
+    - allowed_actions enforcement (allowed_tools is recorded in the registry but not checked here)
     """
     def __init__(
         self,
@@ -63,8 +64,8 @@ class AgentIdentityProvider:
         self.require_request_binding = require_request_binding
         self.secret_key = secret_key
         self.token_max_age_seconds = token_max_age_seconds
-        # Replay cache: request_id -> expiry (epoch seconds). Per-process only; see README
-        # "Known limitations" -- multi-instance deployments need a shared store.
+        # Fallback replay cache: request_id -> expiry (epoch seconds). Used only when the registry has no
+        # repository; otherwise replays are recorded in the shared repository (see _consume_request_id).
         self._seen_request_ids: dict[str, float] = {}
         self._replay_lock = threading.Lock()
         self.oidc_audience = oidc_audience

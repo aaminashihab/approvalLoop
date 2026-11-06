@@ -28,9 +28,10 @@ class AgentGateway:
     Invariant: AI proposes. Deterministic policy decides. Infrastructure executes.
     
     Full Gateway Flow:
-    Agent Proposal -> Cryptographic Identity Check -> Model Safety Defense ->
-    Policy Profile Evaluation -> Deterministic Parameter Check -> Gateway Decision ->
-    (If ALLOW: Instant/Async Execution; If REQUIRE_HUMAN_APPROVAL: Workflow Paused; If DENY: Blocked & Audited)
+    Agent Proposal -> Cryptographic Identity Check -> Text Screening (pattern filter, plus Model Armor
+    when configured) -> Policy Profile Evaluation (including the daily cap) -> Gateway Decision ->
+    (If ALLOW: executed synchronously through the worker; If REQUIRE_HUMAN_APPROVAL: Workflow Paused;
+    If DENY: Blocked & Audited)
     """
     def __init__(
         self,
