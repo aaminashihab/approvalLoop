@@ -4,7 +4,7 @@
 
 > AI proposes. Deterministic policy decides. Infrastructure executes.
 
-**Status:** a working prototype and portfolio project, not a production system. The governance core is real and well tested (210 automated tests, including tests against a real PostgreSQL server). Some advertised integrations are only adapters or demos; see [What is real and what is not](#what-is-real-and-what-is-not).
+**Status:** a working prototype and portfolio project, not a production system. The governance core is real and well tested (216 automated tests, including 12 against a real PostgreSQL server). Some integrations are only adapters or demos; see [What is real and what is not](#what-is-real-and-what-is-not) and [Known limitations](#known-limitations).
 
 ---
 
@@ -39,7 +39,7 @@ Agent (finance / support / sales)
    │  AgentActionProposal + signed credential
    ▼
 Agent Gateway ──► 1. Identity: HMAC or Google OIDC token, agent registered, active, action allow-listed, request not replayed
-              ──► 2. Text screening: Google Cloud Model Armor (when credentials exist) + pattern filter
+              ──► 2. Text screening: Google Cloud Model Armor (only when a project and Google credentials are configured) + pattern filter
               ──► 3. Policy: versioned limits per agent profile, plus a daily cap per agent
    │
    ├── ALLOW ──► idempotent executor ──► audit trail
@@ -54,6 +54,14 @@ open reports → overdue? → claim (no duplicates) → LLM drafts wording → c
 → validator checks recipient, amount, report and state → policy → send → state change only if nothing changed meanwhile
 ```
 
+How long "overdue" is depends on `APP_ENV` (`backend/approval_loop/config.py`):
+
+| `APP_ENV` | Reminder after | Escalation after the reminder |
+|---|---|---|
+| `demo` | 30 s | 90 s |
+| `test` | 2 s | 5 s |
+| `production` | 24 h | 72 h |
+
 Key design choices:
 
 - **The model never holds authority.** Whether an action runs depends only on structured fields (agent, action, amount, currency, recipient), never on the justification text.
@@ -65,19 +73,21 @@ Key design choices:
 | Area | Status | Details |
 |---|---|---|
 | Gateway, identity, policy, daily cap | **Implemented and tested** | Policy decisions matched the documented limits in 20,040 of 20,040 evaluated cases. |
-| Human approval queue | **Implemented and tested** | Durable in PostgreSQL; approvals expire after 24 h; an agent that has been disabled cannot have its actions approved. |
+| Human approval queue | **Implemented and tested** | Durable in PostgreSQL. Approvals older than 24 h are refused when someone tries to approve them (they stay listed until then). An agent that has been disabled cannot have its actions approved. |
 | Approval atomicity | **Implemented and tested** | Single winner across separate database connections. Not yet load-tested on Cloud SQL. |
 | Request-bound agent tokens | **Implemented** | Tokens are tied to one request and a hash of the proposal. Enforced by default only in production. |
 | Replay protection | **Implemented** | Stored in the database, so it holds across instances. |
 | PostgreSQL storage | **Implemented and tested** | Schema created on start-up. Without `DATABASE_URL` the API uses in-memory storage (refused in production). |
 | Operator console (React) | **Implemented** | Approvals, activity, agents, expenses and a sandbox. |
-| LLM use (Gemini) | **Limited** | The model writes justifications and reminder wording only. Amounts, recipients and actions come from code, not the model. With no `GEMINI_API_KEY`, fixed templates are used. |
-| Google Cloud Model Armor | **Optional** | Used only when Google credentials are available. Otherwise it is silently skipped and only the pattern filter runs. |
+| LLM use (Gemini) | **Limited** | The model writes justifications and reminder wording only. Amounts, recipients and actions come from code, not the model. With no `GEMINI_API_KEY`, fixed templates are used. The default model name (`gemini-3.7-flash`) has not been tested against the live API in this repository's test suite or evaluation. |
+| Google Cloud Model Armor | **Optional** | Used only when `GOOGLE_CLOUD_PROJECT` is set and Google credentials are found (`GOOGLE_APPLICATION_CREDENTIALS`, a gcloud application-default credentials file, or Cloud Run). Otherwise it is silently skipped and only the pattern filter runs, even with `MODEL_ARMOR_FAIL_CLOSED=true` (that setting only covers errors from the Model Armor API). |
 | Pattern filter | **Partial** | Catches known injection phrases, including disguised ones (look-alike letters, hidden characters, digit swaps, spacing, Base64). It does **not** catch reworded instructions: 0 of 8 in our tests. The policy limits, not this filter, bound what an attack can achieve. |
-| "Multi-agent" fleet | **Demo only** | Three agents (finance, support, sales) send proposals independently. A `FleetOrchestrator` chains four helper agents, but it is used only in tests and its agent is not registered in the running app. |
+| "Multi-agent" fleet | **Demo only** | Three agents (finance, support, sales) send proposals independently. A `FleetOrchestrator` chains four helper agents, but it is used only in tests and the demo script, and its agent is not registered in the running app. |
+| Escalation "skill" files | **Loaded, not used** | `skills/approval_escalation/` is read during escalation, but its content does not affect the wording or any decision. |
 | Slack and SMTP notifications | **Adapters only** | `SlackNotificationProvider` and `EmailNotificationProvider` exist, but the running app always uses the mock notifier. |
 | Executing real refunds, credits or discounts | **Not implemented** | Execution is simulated by the mock notifier. |
 | Async task runtime with leases | **Implemented, not wired** | Implemented and tested, but not used by any API route. |
+| Tracing | **In-memory only** | `/api/traces` shows recent spans from an in-memory buffer. OpenTelemetry API calls are made, but no exporter is configured. |
 
 ## Policy limits
 
@@ -103,22 +113,28 @@ backend/approval_loop/
   guardrails/     Model Armor client + pattern filter
   policy/         versioned policy profiles and daily caps
   memory/         Memory Bank: workflows, decisions, human approval state
+  domain/         data models, agent and approver registries, eligibility rules
+  validator/      checks a reminder's recipient, amount, report and state
   engine.py       expense-reminder loop
   agent/          fleet agents, prompts, wording drafter
   storage/        repository interface, in-memory and PostgreSQL implementations, SQL schema
   worker/         notification providers (mock, Slack, SMTP)
   runtime/        async task runtime (not wired to routes)
-backend/tests/    210 tests
+  observability/  in-memory trace buffer
+  skills/         loader for the files in skills/
+  config.py       settings from environment variables
+backend/tests/    216 tests
 frontend/         React + TypeScript + Tailwind operator console
 evals/            demo and simulation scripts
-paper/            IEEE-style evaluation paper and reproducible harness
-docs/             study guide and architecture diagram
-skills/           procedural "skill" files loaded by the reminder loop
+paper/            IEEE-style evaluation paper and reproducible harness (extra requirements in paper/requirements.txt)
+docs/             architecture diagram
+skills/           procedural "skill" files read by the reminder loop
+DEVPOST.md        original hackathon write-up (out of date: describes Firestore and 128 tests)
 ```
 
 ## Run it locally
 
-**Requirements:** Python 3.10+, Node.js 20+. PostgreSQL is optional locally.
+**Requirements:** Python 3.10 or 3.11 (the versions CI tests; the Docker image uses 3.12), Node.js 20+. PostgreSQL is optional locally.
 
 **1. Backend**
 
@@ -135,6 +151,8 @@ This runs with in-memory storage, which is lost on restart. To use PostgreSQL, s
 ```bash
 export DATABASE_URL=postgresql://approvalloop:approvalloop@localhost:5432/approvalloop
 ```
+
+If `frontend/dist` exists (after `npm run build`), the backend also serves the built console at http://localhost:8080.
 
 **2. Console**
 
@@ -158,7 +176,7 @@ This starts PostgreSQL and the app, with the built console, on http://localhost:
 
 ## Configuration
 
-All settings are environment variables (see `backend/approval_loop/config.py`).
+All settings are environment variables (see `backend/approval_loop/config.py`). A `.env` file is also loaded through python-dotenv (searched for from `backend/approval_loop/` upward).
 
 | Variable | Purpose | Default |
 |---|---|---|
@@ -170,16 +188,16 @@ All settings are environment variables (see `backend/approval_loop/config.py`).
 | `REQUIRE_BOUND_AGENT_TOKENS` | Require tokens bound to one request and proposal | on in production, off otherwise |
 | `OIDC_AUDIENCE` | Expected audience for Google OIDC tokens. Unset disables OIDC (fail closed). `OIDC_EXPECTED_AUDIENCE` is accepted as an alias. | unset |
 | `AGENT_OIDC_BINDINGS` | `agent_id=service-account-email,...` pairs for agent OIDC | empty |
-| `GEMINI_API_KEY` / `GEMINI_MODEL` | Optional LLM for wording; required in production | unset / `gemini-3.7-flash` |
-| `MODEL_ARMOR_ENABLED` / `MODEL_ARMOR_FAIL_CLOSED` | Google Cloud Model Armor screening (needs Google credentials) | `true` / `true` |
-| `MODEL_ARMOR_LOCATION` / `MODEL_ARMOR_TEMPLATE_ID` | Model Armor region and template | `us-central1` / `default-guardrail` |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Optional LLM for wording; the key is required in production | unset / `gemini-3.7-flash` |
+| `MODEL_ARMOR_ENABLED` / `MODEL_ARMOR_FAIL_CLOSED` | Google Cloud Model Armor screening (needs Google credentials; see above) | `true` / `true` |
+| `MODEL_ARMOR_LOCATION` / `MODEL_ARMOR_TEMPLATE_ID` | Model Armor region (falls back to `REGION`) and template | `us-central1` / `default-guardrail` |
 | `APPROVAL_TTL_SECONDS` | How long a held action can still be approved | `86400` (24 h) |
 | `ADMIN_FALLBACK_EMAIL` | Escalation target when no backup approver exists | development value |
-| `APP_ALLOWED_ORIGINS` | CORS origins (no `*` in production) | localhost origins |
+| `APP_ALLOWED_ORIGINS` | CORS origins, applied **only in production** (no `*` allowed). Outside production CORS allows any origin. | localhost origins |
 | `ALLOW_INSECURE_DEMO_AUTH` | Allow unauthenticated operator calls outside production | `false` |
-| `GOOGLE_CLOUD_PROJECT` | Google Cloud project for OIDC and Model Armor | set in config |
+| `GOOGLE_CLOUD_PROJECT` | Google Cloud project for Model Armor (also shown by `/healthz` and `/api/agbom`). **Required in production.** Without it, Model Armor is skipped. | unset |
 
-Production start-up is refused if default secrets are used, `DATABASE_URL` or `GEMINI_API_KEY` is missing, insecure demo auth is enabled, or CORS allows `*`.
+Production start-up is refused if the default `SCHEDULER_API_KEY` or `AGENT_IDENTITY_SECRET` is used, `DATABASE_URL`, `GEMINI_API_KEY` or `GOOGLE_CLOUD_PROJECT` is missing, `ADMIN_FALLBACK_EMAIL` is empty or an `example.com` address, insecure demo auth is enabled, or CORS allows `*`.
 
 ## API overview
 
@@ -190,17 +208,18 @@ All routes are under `/api`. Interactive documentation is at `/docs` when the se
 | `POST /gateway/propose` | Submit an agent proposal; returns the decision | agent token |
 | `GET /gateway/actions/pending` | Held actions waiting for a person | operator |
 | `POST /gateway/actions/{id}/approve` · `/reject` | Decide a held action (body: `{"notes": "..."}`); the approve response includes an explicit `execution` status | operator |
-| `GET /memory/workflows` | Workflow history with decisions, reviews and execution results | operator in production |
-| `GET /registry/agents` | List agents | operator in production |
+| `GET /memory/workflows` · `/memory/workflows/{id}` | Workflow history with decisions, reviews and execution results | operator in production |
+| `GET /registry/agents` · `/registry/agents/{id}` | List or read agents | operator in production |
+| `POST /registry/agents` | Register or update an agent | admin |
 | `POST /registry/agents/{id}/status` | Enable or disable an agent | admin |
 | `GET /reports` · `GET /actions` | Expense reports and reminder log | operator in production |
 | `POST /reports` · `POST /reports/{id}/resolve` | Create or resolve an expense report | operator |
 | `POST /tick` | Run the reminder loop (called by Cloud Scheduler) | scheduler |
 | `GET /actions/{id}/why-acted` | Explain why the reminder loop acted | **none, even in production** (see limitations) |
 | `GET /metrics` · `GET /traces` | Counters and recent traces | operator in production |
-| `GET /agbom` | Agent inventory | none |
+| `GET /agbom` | Agent inventory (some listed tools and skills do not exist in the code) | none |
 | `POST /demo/*` · `/seed` · `/simulate-*` | Sandbox scenarios; these endpoints do not exist (404) in production | none |
-| `GET /health/live` · `/health/ready` | Health checks (outside `/api`) | none |
+| `GET /health/live` · `/health/ready` · `/healthz` | Health checks (outside `/api`); `/healthz` also reports the Google Cloud project and model | none |
 
 ## Tests and evaluation
 
@@ -209,9 +228,24 @@ cd backend
 PYTHONPATH=. python -m pytest tests -q
 ```
 
-The suite has 210 tests. Twelve run against a real PostgreSQL server: set `TEST_DATABASE_URL`, or leave it unset to start an embedded server from the `pgserver` dev dependency. CI runs on Python 3.10 and 3.11 with a PostgreSQL 16 service, builds the console, and builds the Docker image.
+The suite has 216 tests. Twelve run against a real PostgreSQL server: set `TEST_DATABASE_URL`, or leave it unset to start an embedded server from the `pgserver` dev dependency. CI runs on Python 3.10 and 3.11 with a PostgreSQL 16 service, builds the console, and builds the Docker image.
 
-`paper/` contains an IEEE-style evaluation with a reproducible harness (`paper/eval/run_evaluation.py`). Measured in-process on a laptop, after the fixes it reports:
+The demo and simulation scripts in `evals/` run from the repository root:
+
+```bash
+PYTHONPATH=backend python evals/run_demo_scenarios.py
+```
+
+Some of their headline lines are fixed text rather than measurements (for example "Human Prompts Required: 0").
+
+`paper/` contains an IEEE-style evaluation with a reproducible harness. Run it from the repository root:
+
+```bash
+pip install -r paper/requirements.txt   # backend requirements plus matplotlib
+PYTHONPATH=backend python paper/eval/run_evaluation.py --tag after   # overwrites paper/eval/results_after.json and paper/figures/after/
+```
+
+Measured in-process on a laptop, it reports:
 
 - **Speed:** median gateway decision 0.26–0.29 ms; approving one action takes about 0.11 ms whether 100 or 10,000 workflows are stored.
 - **Policy:** 20,040 of 20,040 decisions matched the documented limits.
@@ -229,19 +263,27 @@ export GOOGLE_CLOUD_PROJECT=your-project
 export CLOUD_SQL_INSTANCE=your-project:us-central1:approvalloop
 export DATABASE_URL="postgresql://USER:PASSWORD@/approvalloop?host=/cloudsql/$CLOUD_SQL_INSTANCE"
 export GEMINI_API_KEY=...
+export SCHEDULER_API_KEY=...        # the script's default is the development key
+export AGENT_IDENTITY_SECRET=...    # required when APP_ENV=production
 ./deploy.sh
 ```
 
-With `USE_SECRET_MANAGER=true`, secrets are read from Secret Manager (`gemini-api-key`, `scheduler-api-key`, `database-url`) instead of the environment. The GitHub workflow `.github/workflows/deploy.yml` does the same when the `GCP_SA_KEY` and `CLOUD_SQL_INSTANCE` repository secrets are set. Neither path has been run against a real Google Cloud project as part of this work.
+With `APP_ENV=production`, the script stops early if `SCHEDULER_API_KEY` is the development key or `AGENT_IDENTITY_SECRET` is missing, and deploys with `--no-allow-unauthenticated`. With `USE_SECRET_MANAGER=true`, the app's secrets are read from Secret Manager (`gemini-api-key`, `scheduler-api-key`, `agent-identity-secret`, `database-url`) instead of the environment; the Cloud Scheduler job still sends the `SCHEDULER_API_KEY` from your shell, so export the same value.
+
+The GitHub workflow `.github/workflows/deploy.yml` (manual trigger only) does less: it builds the image and deploys it, but creates no Cloud Scheduler job. It needs the repository secrets `GCP_SA_KEY` and `GCP_PROJECT_ID` (and `CLOUD_SQL_INSTANCE` for PostgreSQL). For `production` it requires Cloud SQL, reads the keys from the same Secret Manager secrets, and deploys without public access.
+
+Neither path has been run against a real Google Cloud project; `deploy.sh` was checked with a stubbed `gcloud`, and the workflow passes `actionlint`.
 
 ## Known limitations
 
-- **Two read endpoints are unauthenticated.** `GET /api/actions/{id}/why-acted` (reminder-action details, including recipients) and `GET /api/agbom` (agent inventory) need no key, even in production.
+- **Large escalations go only to senior addresses.** For reports of 5,000 or more (the threshold ignores currency), escalation is allowed only to `ADMIN_FALLBACK_EMAIL` or an address containing "director", "admin" or "vp".
+- **Two read endpoints are unauthenticated.** `GET /api/actions/{id}/why-acted` (reminder-action details, including recipients) and `GET /api/agbom` (agent inventory) need no key, even in production. `/healthz` also shows the Google Cloud project ID.
 - **One shared key for people.** Operators, admin and the scheduler share `SCHEDULER_API_KEY`, so decisions are recorded as "Admin Operator (API-Key)" rather than a named person. Production use needs real sign-in (OIDC) in front of the console.
-- **Daily cap is per server.** The cap total and the in-memory fallback for replay protection are kept in each process; several API instances need these in the shared database.
+- **Daily cap is checked per server.** The day's total is read from shared storage, but the lock that serialises "check the total, then record" is per process, so two API instances can both pass the cap at the same moment.
 - **No real execution.** Approved actions are recorded and "sent" through a mock notifier; no payment, CRM or ticketing system is called.
 - **Limited model role.** See [What is real and what is not](#what-is-real-and-what-is-not); making the model choose structured proposals (with the gateway still enforcing limits) is the main open step.
 - **Policy limits are duplicated** in the console (`frontend/src/lib/policy.ts`) for display; the server is authoritative.
+- **"Reset sample reports"** in the Sandbox re-saves the five sample reports but does not remove reports you added.
 - **No** multi-tenancy, rate limiting, per-recipient limits or data-retention policy.
 
 ## Further reading
