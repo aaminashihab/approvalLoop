@@ -28,9 +28,10 @@ class AgentGateway:
     Invariant: AI proposes. Deterministic policy decides. Infrastructure executes.
     
     Full Gateway Flow:
-    Agent Proposal -> Cryptographic Identity Check -> Model Safety Defense ->
-    Policy Profile Evaluation -> Deterministic Parameter Check -> Gateway Decision ->
-    (If ALLOW: Instant/Async Execution; If REQUIRE_HUMAN_APPROVAL: Workflow Paused; If DENY: Blocked & Audited)
+    Agent Proposal -> Cryptographic Identity Check -> Text Screening (pattern filter, plus Model Armor
+    when configured) -> Policy Profile Evaluation (including the daily cap) -> Gateway Decision ->
+    (If ALLOW: executed synchronously through the worker; If REQUIRE_HUMAN_APPROVAL: Workflow Paused;
+    If DENY: Blocked & Audited)
     """
     def __init__(
         self,
@@ -162,34 +163,34 @@ class AgentGateway:
 
             # 4. Map Decision Outcome
             if policy_dec == PolicyDecisionEnum.ALLOW:
-                self._cap_lock.acquire()
-                over_cap = self._daily_cap_exceeded(proposal, profile_name, policy_version)
-                if over_cap:
-                    self._cap_lock.release()
-                    policy_dec, policy_reason = PolicyDecisionEnum.REQUIRE_HUMAN_APPROVAL, over_cap
+                # "Check the day's total, then record the allow" happens under one lock. The `with` block
+                # releases it even if the check or the write raises, so one storage error cannot stall
+                # every later automatic approval.
+                with self._cap_lock:
+                    over_cap = self._daily_cap_exceeded(proposal, profile_name, policy_version)
+                    if over_cap:
+                        policy_dec, policy_reason = PolicyDecisionEnum.REQUIRE_HUMAN_APPROVAL, over_cap
+                    else:
+                        decision = GatewayDecision(
+                            decision_id=decision_id,
+                            proposal_id=proposal.proposal_id,
+                            workflow_id=proposal.workflow_id,
+                            agent_id=proposal.agent_id,
+                            action_name=proposal.action_name,
+                            decision=GatewayDecisionEnum.ALLOW,
+                            reason=policy_reason,
+                            policy_version=policy_version,
+                            risk_level=risk_level,
+                            identity_verified=True,
+                            validation_passed=True,
+                            safety_guardrail_passed=True,
+                            requires_human_approval=False,
+                            action_record_id=action_record_id,
+                            details={"action": proposal.action_name, "amount": str(proposal.amount), "recipient": proposal.recipient}
+                        )
+                        self._record_in_memory(proposal, decision)
 
             if policy_dec == PolicyDecisionEnum.ALLOW:
-                decision = GatewayDecision(
-                    decision_id=decision_id,
-                    proposal_id=proposal.proposal_id,
-                    workflow_id=proposal.workflow_id,
-                    agent_id=proposal.agent_id,
-                    action_name=proposal.action_name,
-                    decision=GatewayDecisionEnum.ALLOW,
-                    reason=policy_reason,
-                    policy_version=policy_version,
-                    risk_level=risk_level,
-                    identity_verified=True,
-                    validation_passed=True,
-                    safety_guardrail_passed=True,
-                    requires_human_approval=False,
-                    action_record_id=action_record_id,
-                    details={"action": proposal.action_name, "amount": str(proposal.amount), "recipient": proposal.recipient}
-                )
-                try:
-                    self._record_in_memory(proposal, decision)
-                finally:
-                    self._cap_lock.release()
                 # Automatic execution for low-risk allowed actions
                 exec_ok, exec_receipt, exec_err = self._execute_proposal_action(proposal, decision, operator="ApprovalLoop Auto-Executor")
                 decision.details["execution_ok"] = exec_ok

@@ -37,7 +37,7 @@ def mock_model_armor_client():
 @pytest.fixture
 def model_armor_guardrail(mock_model_armor_client):
     return ModelSafetyGuardrail(
-        project_id="model-factor-506215-v8",
+        project_id="test-project",
         location="us-central1",
         template_id="default-guardrail",
         fail_closed=True,

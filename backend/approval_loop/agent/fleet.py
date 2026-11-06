@@ -111,10 +111,10 @@ class FinanceAgent(BaseFleetAgent):
         """
         Reasons over the financial situation and emits a structured proposal.
         """
-        # 1. Model Armor Pre-LLM Prompt Inspection
+        # 1. Screen the input. If it is flagged, Gemini is not called and the fixed template is used.
         safety_prompt = self.guardrail.inspect_prompt(reason)
         if not safety_prompt.passed:
-            logger.warning("FinanceAgent prompt rejected by Model Armor guardrail: %s", safety_prompt.reason)
+            logger.warning("FinanceAgent input flagged by the safety guardrail (Gemini is skipped; the template is used): %s", safety_prompt.reason)
 
         proposal_id = f"prop_{uuid.uuid4().hex[:10]}"
         workflow_id = f"wf_{uuid.uuid4().hex[:10]}"
@@ -139,10 +139,11 @@ class FinanceAgent(BaseFleetAgent):
                 justification = parsed.get("justification", justification)
                 raw_reasoning = response.text
 
-                # 2. Model Armor Post-LLM Output Inspection
+                # 2. Screen the model output. A flag is only logged here; the gateway screens the
+                #    justification again and denies the proposal if it is unsafe.
                 safety_out = self.guardrail.inspect_model_output(raw_reasoning, user_prompt=user_msg)
                 if not safety_out.passed:
-                    logger.warning("FinanceAgent Gemini output rejected by Model Armor guardrail: %s", safety_out.reason)
+                    logger.warning("FinanceAgent Gemini output flagged by the safety guardrail (logged only; the gateway screens the proposal again): %s", safety_out.reason)
             except Exception as e:
                 logger.warning("Gemini generation in FinanceAgent fell back to deterministic template: %s", str(e))
 
@@ -162,8 +163,6 @@ class FinanceAgent(BaseFleetAgent):
             raw_llm_reasoning=raw_reasoning
         )
         auth_context = self.create_auth_context(proposal)
-        return proposal, auth_context
-
         return proposal, auth_context
 
 class SupportAgent(BaseFleetAgent):
@@ -198,7 +197,7 @@ class SupportAgent(BaseFleetAgent):
     ) -> tuple[AgentActionProposal, AgentAuthContext]:
         safety_prompt = self.guardrail.inspect_prompt(reason)
         if not safety_prompt.passed:
-            logger.warning("SupportAgent prompt rejected by Model Armor guardrail: %s", safety_prompt.reason)
+            logger.warning("SupportAgent input flagged by the safety guardrail (Gemini is skipped; the template is used): %s", safety_prompt.reason)
 
         proposal_id = f"prop_{uuid.uuid4().hex[:10]}"
         workflow_id = f"wf_{uuid.uuid4().hex[:10]}"
@@ -225,7 +224,7 @@ class SupportAgent(BaseFleetAgent):
 
                 safety_out = self.guardrail.inspect_model_output(raw_reasoning, user_prompt=user_msg)
                 if not safety_out.passed:
-                    logger.warning("SupportAgent Gemini output rejected by Model Armor guardrail: %s", safety_out.reason)
+                    logger.warning("SupportAgent Gemini output flagged by the safety guardrail (logged only; the gateway screens the proposal again): %s", safety_out.reason)
             except Exception as e:
                 logger.warning("Gemini generation in SupportAgent fell back to deterministic template: %s", str(e))
 
@@ -280,7 +279,7 @@ class SalesAgent(BaseFleetAgent):
     ) -> tuple[AgentActionProposal, AgentAuthContext]:
         safety_prompt = self.guardrail.inspect_prompt(reason)
         if not safety_prompt.passed:
-            logger.warning("SalesAgent prompt rejected by Model Armor guardrail: %s", safety_prompt.reason)
+            logger.warning("SalesAgent input flagged by the safety guardrail (Gemini is skipped; the template is used): %s", safety_prompt.reason)
 
         proposal_id = f"prop_{uuid.uuid4().hex[:10]}"
         workflow_id = f"wf_{uuid.uuid4().hex[:10]}"
@@ -307,7 +306,7 @@ class SalesAgent(BaseFleetAgent):
 
                 safety_out = self.guardrail.inspect_model_output(raw_reasoning, user_prompt=user_msg)
                 if not safety_out.passed:
-                    logger.warning("SalesAgent Gemini output rejected by Model Armor guardrail: %s", safety_out.reason)
+                    logger.warning("SalesAgent Gemini output flagged by the safety guardrail (logged only; the gateway screens the proposal again): %s", safety_out.reason)
             except Exception as e:
                 logger.warning("Gemini generation in SalesAgent fell back to deterministic template: %s", str(e))
 

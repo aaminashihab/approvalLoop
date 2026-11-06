@@ -137,3 +137,38 @@ def test_policy_deny_resolved_report_action():
     res, reason = policy.evaluate(action, report, envelope)
     assert res == PolicyDecisionEnum.DENY
     assert "POL-STA-03" in reason
+
+
+def test_policy_allows_high_value_escalation_to_admin_fallback():
+    """With no backup approver, escalations go to ADMIN_FALLBACK_EMAIL; that address must be accepted."""
+    settings = Settings(app_env=AppEnvironment.TEST, admin_fallback_email="escalations-owner@company.internal")
+    policy = PolicyEngine(settings=settings)
+    report = ExpenseReport(
+        report_id="EXP-HV",
+        submitter_name="Carlos",
+        submitter_email="carlos@company.com",
+        approver_email="nobackup@company.com",
+        amount=Decimal("7500.00"),
+        description="Enterprise servers"
+    )
+    action = ActionRecord(
+        report_id="EXP-HV",
+        action_type=ActionType.ESCALATE,
+        source_state=ReportStatus.NUDGED,
+        target_state=ReportStatus.ESCALATED,
+        tick_id="t1",
+        idempotency_key="EXP-HV:escalate",
+        recipient="escalations-owner@company.internal",
+        amount=Decimal("7500.00")
+    )
+    envelope = NotificationEnvelope(
+        report_id="EXP-HV",
+        amount=Decimal("7500.00"),
+        currency="USD",
+        recipient="Escalations-Owner@company.internal",
+        submitter_name="Carlos",
+        subject="ESCALATION",
+        body_text="High value escalation"
+    )
+    res, reason = policy.evaluate(action, report, envelope)
+    assert res == PolicyDecisionEnum.ALLOW, reason

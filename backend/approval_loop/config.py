@@ -52,8 +52,9 @@ class Settings(BaseModel):
     allowed_origins_raw: str = Field(
         default_factory=lambda: os.getenv("APP_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080,http://127.0.0.1:8080,http://127.0.0.1:5173")
     )
+    # No built-in default: an unset project must not silently point Model Armor at someone else's project.
     google_cloud_project: str = Field(
-        default_factory=lambda: os.getenv("GOOGLE_CLOUD_PROJECT", "model-factor-506215-v8")
+        default_factory=lambda: os.getenv("GOOGLE_CLOUD_PROJECT", "")
     )
     gemini_api_key: str | None = Field(
         default_factory=lambda: os.getenv("GEMINI_API_KEY")
@@ -143,7 +144,7 @@ class Settings(BaseModel):
                 raise ValueError("PRODUCTION error: Default AGENT_IDENTITY_SECRET is prohibited in production.")
             if not self.gemini_api_key:
                 raise ValueError("PRODUCTION error: GEMINI_API_KEY must be provided via environment variable or Google Secret Manager.")
-            if self.google_cloud_project == "approval-loop-hackathon" and not os.getenv("GOOGLE_CLOUD_PROJECT"):
+            if not self.google_cloud_project:
                 raise ValueError("PRODUCTION error: GOOGLE_CLOUD_PROJECT must be explicitly configured in production.")
             if "*" in self.allowed_origins_raw:
                 raise ValueError("PRODUCTION error: Wildcard '*' CORS origin is prohibited in production.")

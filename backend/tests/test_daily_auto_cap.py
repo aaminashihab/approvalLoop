@@ -81,3 +81,30 @@ def test_concurrent_proposals_cannot_overshoot_the_cap():
 def test_cap_can_be_disabled_for_benchmarks():
     gw, ids, _ = _gateway(enforce=False)
     assert all(_send(gw, ids, "4999.00").decision == GatewayDecisionEnum.ALLOW for _ in range(15))
+
+
+def test_cap_lock_is_released_when_the_cap_check_fails():
+    """A storage error during the cap check must not leave the lock held (it used to stall every later ALLOW)."""
+    gw, ids, _ = _gateway()
+    real_list = gw.memory_bank.list_workflows
+    calls = {"n": 0}
+
+    def flaky_list(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("simulated storage error")
+        return real_list(*args, **kwargs)
+
+    gw.memory_bank.list_workflows = flaky_list
+    try:
+        _send(gw, ids, "100.00")
+        raise AssertionError("the simulated storage error should propagate")
+    except RuntimeError:
+        pass
+
+    result = {}
+    t = threading.Thread(target=lambda: result.setdefault("d", _send(gw, ids, "100.00")), daemon=True)
+    t.start()
+    t.join(timeout=5)
+    assert not t.is_alive(), "second proposal hung: the daily-cap lock was never released"
+    assert result["d"].decision == GatewayDecisionEnum.ALLOW

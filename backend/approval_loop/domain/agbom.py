@@ -15,7 +15,7 @@ class AgentBillOfMaterials(BaseModel):
     model: str = "gemini-3.7-flash"
     framework: str = "Google GenAI SDK (google-genai)"
     runtime: str = "Google Cloud Run"
-    project_id: str = "approval-loop-hackathon"
+    project_id: str = ""
     trigger: str = "Google Cloud Scheduler (* * * * *)"
     data_sources: list[str] = Field(default_factory=lambda: ["expense_reports", "approver_registry", "agent_registry", "workflow_memories"])
     state_store: str = "PostgreSQL"

@@ -127,7 +127,9 @@ class ModelSafetyGuardrail:
         self.template_resource_name = f"projects/{self.project_id}/locations/{self.location}/templates/{self.template_id}"
         self.model_armor_client = model_armor_client
 
-        if self.enabled and self.model_armor_client is None:
+        if self.enabled and self.model_armor_client is None and not self.project_id:
+            logger.warning("Model Armor skipped: GOOGLE_CLOUD_PROJECT is not set; only the pattern filter runs.")
+        elif self.enabled and self.model_armor_client is None:
             # Check for local Application Default Credentials or Cloud Run environment
             adc_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
             standard_gcp_path = os.path.expanduser("~/.config/gcloud/application_default_credentials.json")
