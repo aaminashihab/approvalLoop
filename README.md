@@ -32,6 +32,9 @@
 2. **Lets a person decide held actions.** Held actions wait in a durable queue. An operator approves or rejects them in the console, and every decision is recorded with the policy version, the reason and who decided.
 3. **Chases stalled expense approvals.** A scheduled "tick" finds expense reports waiting too long, reminds the approver, then escalates to a backup. An LLM may write the reminder wording; code supplies every fact in the message.
 
+![Approvals view with a ₹20,000 refund held for a person, showing where it falls on the finance-v3 policy band](docs/screenshots/approval-queue.png)
+*A held refund in the Approvals view: the policy band, the engine's reason, and the approve / reject controls.*
+
 ## How it works
 
 ```
@@ -127,7 +130,7 @@ backend/tests/    216 tests
 frontend/         React + TypeScript + Tailwind operator console
 evals/            demo and simulation scripts
 paper/            IEEE-style evaluation paper and reproducible harness (extra requirements in paper/requirements.txt)
-docs/             architecture diagram
+docs/             architecture diagram, console screenshots
 skills/           procedural "skill" files read by the reminder loop
 DEVPOST.md        original hackathon write-up (out of date: describes Firestore and 128 tests)
 ```
@@ -164,7 +167,29 @@ npm run dev
 
 Open http://localhost:3000; the dev server forwards `/api` to port 8080. The console asks for an operator key: in local demo mode, this is the value of `SCHEDULER_API_KEY` (a development default is set in `config.py`; never use it outside your machine).
 
+![Console asking for an operator key before it will load the approval queue](docs/screenshots/operator-key-prompt.png)
+*First visit: the console needs an operator key. It is kept only in the browser tab's session storage.*
+
 **3. Try it:** in the console's Sandbox, send the small, medium and oversized refunds. They should be allowed, held and blocked respectively. Then approve the held one under Approvals.
+
+![Sandbox showing the server blocking a ₹1,00,000 refund under policy finance-v3.2.0](docs/screenshots/sandbox-blocked-refund.png)
+*Sandbox: the oversized refund is blocked by the policy limit.*
+
+![Approvals view confirming the held refund was approved and executed, with its receipt ID](docs/screenshots/approve-result.png)
+*After approval: the result shows who approved it and the (mock) execution receipt.*
+
+**Other views**
+
+![Activity view listing workflows with their outcomes: completed, blocked and waiting for a person](docs/screenshots/activity.png)
+*Activity: every proposal, how policy decided, and whether it ran.*
+
+![Agents view listing the finance, support and sales agents with their policy profiles and allowed actions](docs/screenshots/agents.png)
+*Agents: the registered agents, their policy profiles and the actions each may propose.*
+
+![Expenses view with sample expense reports and the reminder log, including one reminder blocked by the validator](docs/screenshots/expenses.png)
+*Expenses: sample reports and the reminder log, including a tampered reminder the validator blocked.*
+
+All screenshots use the built-in sample data; names and email addresses are made up.
 
 **Alternative, everything in Docker:**
 
