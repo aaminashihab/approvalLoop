@@ -1,5 +1,7 @@
 # ApprovalLoop — Governance for Autonomous Enterprise Agent Fleets
 
+> **Archived hackathon write-up — out of date.** This page describes an earlier version: storage is now PostgreSQL, not Firestore, and the suite has 216 tests, not 128. Some claims below (for example Firestore-backed registry and memory) no longer match the code. See [README.md](README.md) for what the project does today.
+
 > **AI proposes. Deterministic policy decides. Infrastructure executes.**
 
 **ApprovalLoop is a governed control plane for autonomous enterprise agents that enforces deterministic policy, human approval, persistent state, and auditable execution before agents can trigger real-world side effects.**
